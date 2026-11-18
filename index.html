@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SOLAR RUN — a torch-ship trading game around one star</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:#060505; --panel:#151009; --panel2:#221808; --line:#4a3a1a;
+  --txt:#efe0c8; --dim:#a08d6a; --gold:#ffb45e; --cyan:#5ee1ff; --grn:#8aff9b; --red:#ff7d6d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font-family:"Cascadia Mono","Consolas","Courier New",monospace;font-size:15px}
+h1,h2,h3{font-weight:600;letter-spacing:.06em;margin:.3em 0}
+h1{color:var(--gold)} h2{color:var(--cyan);font-size:1.15em} h3{color:var(--gold);font-size:1em}
+button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+  padding:6px 14px;font-family:inherit;font-size:14px;cursor:pointer;border-radius:3px}
+button:hover:not(:disabled){background:#33250e;border-color:var(--gold);color:#fff}
+button:disabled{opacity:.35;cursor:default}
+button.primary{border-color:var(--gold);color:var(--gold)}
+button.primary:hover{background:#3a2a10;color:#ffd9a8}
+select{background:var(--panel2);color:var(--txt);border:1px solid var(--line);padding:6px;
+  font-family:inherit;font-size:13px;border-radius:3px;max-width:100%}
+input{background:var(--panel2);color:var(--txt);border:1px solid var(--line);padding:7px 10px;font-family:inherit;border-radius:3px}
+.screen{display:none;max-width:1080px;margin:0 auto;padding:18px}
+.screen.active{display:block}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 16px;margin:10px 0}
+.row{display:flex;gap:14px;flex-wrap:wrap}
+.row>.panel{flex:1;min-width:300px}
+table{border-collapse:collapse;width:100%}
+th{color:var(--dim);text-align:left;font-weight:400;border-bottom:1px solid var(--line);padding:3px 8px;font-size:.85em}
+td{padding:3px 8px;border-bottom:1px solid #241a0c}
+tr.mine td{color:var(--grn)}
+.r{text-align:right} .c{text-align:center}
+.gold{color:var(--gold)} .cyan{color:var(--cyan)} .grn{color:var(--grn)} .red{color:var(--red)} .dim{color:var(--dim)}
+.statusbar{display:flex;gap:22px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--line);
+  border-radius:6px;padding:8px 16px;font-size:.95em}
+.statusbar b{color:var(--gold);font-weight:600}
+.mapbox{position:relative;width:100%;height:560px;background:#000;
+  border:1px solid var(--line);border-radius:6px;overflow:hidden;cursor:grab}
+.mapbox.dragging{cursor:grabbing}
+.maphint{font-size:.85em;color:var(--dim);margin-top:4px}
+.destbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.destbtns button{padding:8px 14px;text-align:left;line-height:1.45}
+.destbtns .tn{color:var(--gold);font-size:1.02em}
+.destbtns .tt{color:var(--dim);font-size:.82em}
+#transit-hud{position:absolute;left:0;right:0;bottom:0;padding:10px 16px;background:linear-gradient(transparent,rgba(6,5,5,.94) 40%);font-size:.95em;pointer-events:none}
+#transit-bar{height:6px;background:#241a0c;border-radius:3px;margin:8px 0 4px}
+#transit-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--cyan),var(--gold));border-radius:3px}
+#traj-info{font-size:.9em;line-height:1.55}
+.modal-back{position:fixed;inset:0;background:rgba(4,3,2,.78);display:none;align-items:center;justify-content:center;z-index:50}
+.modal-back.active{display:flex}
+.modal{background:var(--panel);border:1px solid var(--gold);border-radius:8px;max-width:540px;width:92%;padding:18px 22px;box-shadow:0 0 40px rgba(255,180,94,.15)}
+.modal .choices{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.qty{display:inline-flex;align-items:center;gap:4px}
+.qty button{padding:1px 8px;font-size:13px}
+.log{max-height:120px;overflow-y:auto;font-size:.85em;color:var(--dim)}
+.log .new{color:var(--txt)}
+.log .rumor{color:var(--gold);font-weight:600;border-left:2px solid var(--gold);padding-left:5px;margin:2px 0}
+.rumorcard{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:6px;padding:10px 14px;margin:10px 0;line-height:1.5}
+.titlebox{text-align:center;padding:50px 20px}
+.titlebox h1{font-size:2.6em;text-shadow:0 0 26px rgba(255,180,94,.55)}
+.titlebox .sub{color:var(--cyan);letter-spacing:.2em}
+.smallnote{font-size:.8em;color:var(--dim)}
+#port-desc{line-height:1.55}
+.contra{color:var(--red)}
+#verbadge{position:fixed;right:10px;bottom:8px;font-size:11px;color:var(--dim);opacity:.65;z-index:99}
+#credit{text-align:center;padding:26px 0 30px;font-size:12px;color:var(--dim)}
+#credit a{color:var(--cyan);text-decoration:none}
+#credit a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<!-- ============ TITLE ============ -->
+<div id="scr-title" class="screen active">
+  <div class="titlebox">
+    <h1>SOLAR RUN</h1>
+    <div class="sub">A TORCH-SHIP TRADING GAME AROUND ONE STAR</div>
+    <p style="max-width:660px;margin:26px auto;line-height:1.6" class="dim">
+      The year is whatever your clock says it is — the planets below are where they REALLY
+      are right now, computed from the live ephemeris, and we shall politely ignore the fact
+      that nobody has built the torch ship yet. While the starship crowd chases light-year glory, the real money
+      moves down the well. Your torch drive burns at a steady twelve gees: accelerate to the
+      midpoint, flip, decelerate, and — if your thrust-to-mass is delicate enough — kiss the top
+      of the destination's atmosphere at exactly circular orbital velocity, tangent and clean,
+      without a single wasted burn. Eleven ports from Mercury's foil farms to Pluto's cryo-vaults,
+      every one of them moving on its own real orbit. Launch windows matter. Watch the planets.
+    </p>
+    <p class="gold">The Grand Tour: set foot on all 11 ports and return to Earth. Glory is measured in % ROI per day.</p>
+    <div id="titlescores" style="margin-top:18px"></div>
+    <div style="margin-top:26px">
+      <button class="primary" onclick="newGame()">LAUNCH — NEW GAME</button>
+      <button id="btn-continue" onclick="loadGame()" style="display:none">CONTINUE SAVED GAME</button>
+    </div>
+    <p class="smallnote" style="margin-top:30px">Real Keplerian ephemerides. Real brachistochrone intercepts of moving targets: t = 2&radic;(d/a), thrust fixed, so cargo mass slows you. Earth orbit &rarr; Luna, empty: one hour flat, gravity-well terms included.</p>
+  </div>
+</div>
+
+<!-- ============ PORT ============ -->
+<div id="scr-port" class="screen">
+  <div class="statusbar" id="statusbar"></div>
+  <div class="row">
+    <div class="panel" style="flex:1.3">
+      <h2 id="port-name"></h2>
+      <div id="port-desc" class="dim"></div>
+    </div>
+    <div class="panel">
+      <h3>SHIP MANIFEST</h3>
+      <div id="manifest"></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>THE EXCHANGE <span class="dim" id="mkt-note"></span></h3>
+    <table id="market"></table>
+  </div>
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div class="log" id="log" style="flex:1;min-width:240px"></div>
+      <button onclick="openRumors()" id="rumorsbtn">RUMORS &rarr;</button>
+      <button onclick="showYard()" id="yardbtn">SHIPYARD &rarr;</button>
+      <button class="primary" onclick="showSetout()">SET OUT &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SHIPYARD ============ -->
+<div id="scr-yard" class="screen">
+  <div class="statusbar" id="statusbar3"></div>
+  <h2 style="margin-top:12px" id="yard-title"></h2>
+  <div class="panel"><table id="shipyard"></table></div>
+  <div style="margin-top:12px"><button onclick="showPort()">&larr; BACK TO PORT</button></div>
+</div>
+
+<!-- ============ RUMORS ============ -->
+<div id="scr-rumors" class="screen">
+  <div class="statusbar" id="statusbar-r"></div>
+  <h2 style="margin-top:12px">THE RUMOR LEDGER</h2>
+  <div id="rumorlist" style="margin-top:12px"></div>
+  <div style="margin-top:12px"><button onclick="showPort()">&larr; BACK TO PORT</button></div>
+</div>
+
+<!-- ============ SET OUT ============ -->
+<div id="scr-setout" class="screen">
+  <div class="statusbar" id="statusbar2"></div>
+  <h2 style="margin-top:12px">DEPARTURE PLOT — <span id="setout-from" class="gold"></span> <span class="dim" id="setout-date" style="font-size:.75em"></span></h2>
+  <div class="mapbox" id="mapbox"></div>
+  <div class="maphint">drag to rotate &middot; scroll to zoom &middot; click a port (or a button below) to plot an intercept &middot; the planets are where they really are, and they are moving</div>
+  <div class="panel" id="traj-panel" style="display:none">
+    <div id="traj-info"></div>
+    <div style="margin-top:8px"><button class="primary" id="traj-go" onclick="departSelected()">BURN FOR IT</button></div>
+  </div>
+  <div class="destbtns" id="destbtns"></div>
+  <div style="margin-top:12px"><button onclick="showPort()">&larr; BACK TO PORT</button></div>
+</div>
+
+<!-- ============ TRANSIT ============ -->
+<div id="scr-transit" class="screen">
+  <h2 id="transit-title" style="margin-top:12px"></h2>
+  <div class="mapbox" id="transitbox" style="cursor:default">
+    <div id="transit-hud">
+      <span id="transit-phase" class="cyan"></span>
+      <div id="transit-bar"><div id="transit-fill"></div></div>
+      <span id="transit-stats" class="dim"></span>
+    </div>
+  </div>
+  <div style="margin-top:10px;text-align:center"><button onclick="skipTransit()">SKIP AHEAD &#9193;</button></div>
+</div>
+
+<!-- ============ WIN ============ -->
+<div id="scr-win" class="screen">
+  <div class="titlebox">
+    <h1 class="gold">GRAND TOUR COMPLETE</h1>
+    <div id="win-text" style="max-width:640px;margin:20px auto;line-height:1.7"></div>
+    <div id="hsform" style="margin:14px 0">
+      <input id="hsname" maxlength="24" placeholder="Captain's name">
+      <button class="primary" onclick="recordScore()">RECORD THE VOYAGE</button>
+    </div>
+    <div id="scores" style="margin:14px 0"></div>
+    <div style="margin-top:18px">
+      <button onclick="keepFlying()">KEEP FLYING</button>
+      <button class="primary" onclick="newGame()">NEW GAME</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ EVENT MODAL ============ -->
+<div class="modal-back" id="modal-back">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body" style="line-height:1.55"></div>
+    <div class="choices" id="modal-choices"></div>
+  </div>
+</div>
+
+<div id="credit">Sister game to <a href="https://krisfricke.github.io/Interstellar-Trail/" target="_blank" rel="noopener">Interstellar Trail</a> &middot; Based on <a href="https://krisfricke.github.io/Silk-Road/" target="_blank" rel="noopener">the Silk Road</a> by Kris Fricke, an homage to the classic Oregon Trail</div>
+<div id="verbadge"></div>
+
+<script>
+'use strict';
+const VERSION='S1.13.1';
+/* ================= BODIES =================
+   kep: JPL/Standish approximate Keplerian elements, J2000 values + per-century rates:
+        [a(AU), e, I(deg), L(deg), varpi(deg), Omega(deg)] + rates in the same order.
+   moon: circular orbit about a parent body: a (m), P (days), ph0 (rad at epoch).
+   GM (m^3/s^2), R (m), hAtm (m) = altitude of "atmosphere top" / insertion shell.  */
+const AUm=1.495978707e11, DAY=86400;
+/* The game begins at the player's REAL date and time: positions are propagated from
+   J2000 to the actual present (comfortably inside the elements' 1800-2050 validity),
+   then advance with game time. The exact configuration of all ten bodies never recurs
+   -- the periods are incommensurable -- so there is no shortcut date, only now. */
+const J2000_MS=Date.UTC(2000,0,1,12);
+let EPOCH_MS=Date.now(),EPOCH_DAYS=(EPOCH_MS-J2000_MS)/86400000;
+function setEpoch(ms){EPOCH_MS=ms;EPOCH_DAYS=(ms-J2000_MS)/86400000;}
+/* Greenwich Mean Sidereal Time: which longitude faces the vernal equinox right now.
+   (The spin axis is left untilted — clock-accurate in longitude, not season-accurate.) */
+function earthSpin(day){return (((280.46+360.9856235*(EPOCH_DAYS+day))%360+360)%360)*Math.PI/180;}
+const BODIES=[
+{n:'Mercury',port:true,GM:2.2032e13,R:2.4397e6,h:5e4,col:0xb5a08c,dispR:.16,
+ kep:[0.38709927,0.20563593,7.00497902,252.25032350,77.45779628,48.33076593],
+ rate:[0.00000037,0.00001906,-0.00594749,149472.67411175,0.16047689,-0.12534081],
+ desc:'Sun-blasted foil farms unroll acres of solar sail an hour, and the day-side smelters pour metals too cheap to refine anywhere else. Everyone works nights. There is only night, underground.'},
+{n:'Venus',port:true,GM:3.24859e14,R:6.0518e6,h:2.5e5,col:0xe8c88a,dispR:.30,
+ kep:[0.72333566,0.00677672,3.39467605,181.97909950,131.60246718,76.67984255],
+ rate:[0.00000390,-0.00004107,-0.00078890,58517.81538729,0.00268329,-0.27769418],
+ desc:'Fifty kilometres up, the float-cities ride the calm layer between acid and inferno. The pharma terraces grow molecules that refuse to form anywhere with a decent horizon.'},
+{n:'Earth',port:true,GM:3.98600e14,R:6.371e6,h:2e5,col:0x6fa8ff,dispR:.30,
+ kep:[1.00000261,0.01671123,-0.00001531,100.46457166,102.93768193,0.0],
+ rate:[0.00000562,-0.00004392,-0.01294668,35999.37244981,0.32327364,0.0],
+ desc:'Home. Still the only place coffee grows in dirt under open sky, still the source of every vaccine printer and every luxury worth smuggling. The orbital ring will sell you anything, at ring prices.'},
+{n:'Luna',port:true,moon:{of:2,a:3.844e8,P:27.3217,ph0:2.1},GM:4.9048e12,R:1.7374e6,h:5e4,col:0xc8c8c8,dispR:.12,
+ desc:'The helium-3 mines run day and night — which up here are two weeks each. Regolith glass from the maria furnaces is the construction standard from here to the Belt.'},
+{n:'Mars',port:true,GM:4.2828e13,R:3.3895e6,h:8e4,col:0xe07a4f,dispR:.22,
+ kep:[1.52371034,0.09339410,1.84969142,-4.55343205,-23.94362959,49.55953891],
+ rate:[0.00001847,0.00007882,-0.00813131,19140.30268499,0.44441088,-0.29257343],
+ desc:'The settler republics grow stubborn wheat under glass and sell ochre pigment by the tonne. The xenofossil beds at Meridiani are fenced, guarded, and comprehensively looted.'},
+{n:'Ceres',port:true,GM:6.263e10,R:4.7e5,h:3e4,col:0x9a8f85,dispR:.10,
+ kep:[2.7675,0.0758,10.594,249.89,153.9,80.31],
+ rate:[0,0,0,7826.087,0,0],
+ desc:'The gas station of the Belt. Water ice, volatiles, docking clamps by the thousand, and a bar at the bottom of the Occator lift that has heard every lie a spacer can tell.'},
+{n:'Jupiter',port:false,GM:1.26687e17,R:6.9911e7,h:0,col:0xd8a878,dispR:.55,
+ kep:[5.20288700,0.04838624,1.30439695,34.39644051,14.72847983,100.47390909],
+ rate:[-0.00011607,-0.00013253,-0.00183714,3034.74612775,0.21252668,0.20469106],
+ desc:''},
+{n:'Ganymede',port:true,moon:{of:6,a:1.0704e9,P:7.1546,ph0:0.8},GM:9.8878e12,R:2.6341e6,h:5e4,col:0x8f9aa8,dispR:.13,
+ desc:'Under the ice, an ocean; above it, the magnetosphere farms sieve exotic isotopes out of Jupiter’s radiation belts. The rad-hardened fabs here supply every electronics bay in the system.'},
+{n:'Saturn',port:false,GM:3.7931e16,R:5.8232e7,h:0,col:0xe8d6a0,dispR:.48,
+ kep:[9.53667594,0.05386179,2.48599187,49.95424423,92.59887831,113.66242448],
+ rate:[-0.00125060,-0.00050991,0.00193609,1222.49362201,-0.41897216,-0.28867794],
+ desc:''},
+{n:'Titan',port:true,moon:{of:8,a:1.22187e9,P:15.945,ph0:3.9},GM:8.978e12,R:2.5747e6,h:6e5,col:0xd8b45a,dispR:.14,
+ desc:'The only moon with weather. Methane rains into hydrocarbon seas, the skimmers drink the lakes, and the tholin refineries turn orange smog into polymer feedstock. Bring boil-off insulation.'},
+{n:'Uranus',port:true,GM:5.7940e15,R:2.5362e7,h:1e6,col:0x9fd8d8,dispR:.38,
+ kep:[19.18916464,0.04725744,0.77263783,313.23810451,170.95427630,74.01692503],
+ rate:[-0.00196176,-0.00004397,-0.00242939,428.48202785,0.40805281,0.04240589],
+ desc:'The quiet giant, tipped on its side, mined by automated scoops that dive the cold hydrogen for helium isotopes. The crews rotate out every two years or go strange. Some stay strange.'},
+{n:'Neptune',port:true,GM:6.8365e15,R:2.4622e7,h:1e6,col:0x5a78e8,dispR:.38,
+ kep:[30.06992276,0.00859048,1.77004347,-55.12002969,44.96476227,131.78422574],
+ rate:[0.00026291,0.00005105,0.00035372,218.45945325,-0.32241464,-0.00508664],
+ desc:'Deep in the mantle it rains diamond, and the deep-dredge platforms haul up hailstones no cutter on Earth can flaw. The wind outside does sixteen hundred kilometres an hour. Nobody goes outside.'},
+{n:'Pluto',port:true,GM:8.71e11,R:1.1883e6,h:1e5,col:0xc8b09a,dispR:.10,
+ kep:[39.48211675,0.24882730,17.14001206,238.92903833,224.06891629,110.30393684],
+ rate:[-0.00031596,0.00005170,0.00004818,145.20780515,-0.04062942,-0.01183482],
+ desc:'The last port. Cryo-vaults bank everything worth keeping cold for a century, and the Kuiper diggers keep finding things in the ice that the law says must stay here. The law is far away.'},
+{n:'Voyager Station',port:true,voyager:true,GM:1e6,R:200,h:50,col:0xd8d8e8,dispR:.07,
+ desc:'A museum grown shell by shell around the farthest thing human hands ever built, still falling outward at seventeen kilometres a second; the station simply falls with it, as Newton intended. Pilgrims file past the golden record in silence. The gift shop, of course, does a roaring trade.'}
+];
+const PORTS=BODIES.map(function(b,i){return b.port?i:-1;}).filter(function(i){return i>=0;});
+
+/* ================= EPHEMERIS ================= */
+function keplerXYZ(b,Tc){ /* heliocentric ecliptic, metres */
+  const k=b.kep,r=b.rate;
+  let a=k[0]+r[0]*Tc,e=k[1]+r[1]*Tc,I=k[2]+r[2]*Tc,L=k[3]+r[3]*Tc,vp=k[4]+r[4]*Tc,Om=k[5]+r[5]*Tc;
+  const w=(vp-Om)*Math.PI/180, M=(((L-vp)%360+540)%360-180)*Math.PI/180;
+  let E=M;
+  for(let i2=0;i2<10;i2++)E=E-(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+  const xo=a*(Math.cos(E)-e), yo=a*Math.sqrt(1-e*e)*Math.sin(E);
+  const cI=Math.cos(I*Math.PI/180),sI=Math.sin(I*Math.PI/180);
+  const cO=Math.cos(Om*Math.PI/180),sO=Math.sin(Om*Math.PI/180);
+  const cw=Math.cos(w),sw=Math.sin(w);
+  return {
+    x:((cw*cO-sw*sO*cI)*xo+(-sw*cO-cw*sO*cI)*yo)*AUm,
+    y:((cw*sO+sw*cO*cI)*xo+(-sw*sO+cw*cO*cI)*yo)*AUm,
+    z:((sw*sI)*xo+(cw*sI)*yo)*AUm};
+}
+function posOf(bi,day){ /* day = game days since epoch 2202.0 */
+  const b=BODIES[bi];
+  if(b.voyager){ /* Voyager 1: real outbound track — 75.5 AU at J2000 + 3.566 AU/yr toward RA 17h13m (ecliptic lon ~261, lat ~35) */
+    const r=(75.5+3.566*(EPOCH_DAYS+day)/365.25)*AUm;
+    return {x:r*-0.1312,y:r*-0.8095,z:r*0.5722};
+  }
+  if(b.moon){
+    const p=posOf(b.moon.of,day);
+    let th;
+    if(bi===3)th=(218.316+13.176396*(EPOCH_DAYS+day))*Math.PI/180; /* Luna's real mean longitude */
+    else th=b.moon.ph0+2*Math.PI*(EPOCH_DAYS+day)/b.moon.P;
+    return {x:p.x+b.moon.a*Math.cos(th),y:p.y+b.moon.a*Math.sin(th),z:p.z};
+  }
+  return keplerXYZ(b,(EPOCH_DAYS+day)/36525);
+}
+function distM(a,b,day){const A=posOf(a,day),B=posOf(b,day);return Math.hypot(A.x-B.x,A.y-B.y,A.z-B.z);}
+function distAU(a,b,day){return distM(a,b,day)/AUm;}
+
+/* ================= PHYSICS =================
+   Calibration: Earth orbit -> Luna, ship mass 100, thrust 100 = exactly 1 hour
+   INCLUDING the gravity-well terms. Brachistochrone: t=2*sqrt(d/a), a = A0*(thr/100)*(100/mass).
+   Gravity effects live where they matter at 12 g: the wells. Departure pays
+   (sqrt2-1)*vOrb(origin) of delta-v climbing from parking orbit to escape; arrival pays
+   (sqrt2-1)*vOrb(dest) circularising tangent at atmosphere-top. En route the Sun pulls
+   ~0.006 m/s^2 against a 120 m/s^2 burn: honestly negligible, honestly ignored.  */
+const A0=120.806; /* m/s^2 at mass 100, thrust 100 (calibrated; see tests) */
+const KWELL=Math.SQRT2-1;
+const CEE=2.99792458e8;
+/* Proper time: the ship clock runs slow by d(tau) = v^2/2c^2 dt (first order — honest
+   at our 0.08-0.37c peaks; fully relativistic kinematics would stretch trips another
+   ~2-3% at the extreme, which we note and decline). Integrated exactly per phase:
+   v(t) linear => integral v^2 dt = (v1^3 - v0^3)/3a, or v^2*dt when coasting. */
+function planDeficitUpTo(plan,tc){
+  let def=0;
+  for(const p of plan.ph){
+    if(p.t0>=tc)break;
+    const dt=Math.min(p.t1,tc)-p.t0;
+    if(dt<=0)continue;
+    const v1=p.v0+p.acc*dt;
+    def+=(Math.abs(p.acc)>1e-12?(v1*v1*v1-p.v0*p.v0*p.v0)/(3*p.acc):p.v0*p.v0*dt)/(2*CEE*CEE);
+  }
+  return Math.max(0,def); /* seconds of youth */
+}
+const SOL_EXCL=0.19355*AUm; /* half Mercury's semi-major axis: no ordinary hull flies closer */
+const RSUN_TOUCH=1.4e9;     /* two solar radii: even Icarus must not actually touch it */
+function shipExcl(){return ship().special==='icarus'?RSUN_TOUCH:SOL_EXCL;}
+function segPerihelion(P0,P1){ /* closest approach of the chord to the Sun */
+  const dx=P1.x-P0.x,dy=P1.y-P0.y,dz=P1.z-P0.z;
+  const L2=dx*dx+dy*dy+dz*dz||1;
+  let t=-(P0.x*dx+P0.y*dy+P0.z*dz)/L2;
+  t=Math.max(0,Math.min(1,t));
+  return Math.hypot(P0.x+dx*t,P0.y+dy*t,P0.z+dz*t);
+}
+function detourLength(P0,P1,R){ /* shortest path avoiding a solar keep-out sphere: tangent-arc-tangent */
+  const direct=Math.hypot(P1.x-P0.x,P1.y-P0.y,P1.z-P0.z);
+  if(segPerihelion(P0,P1)>=R)return direct;
+  const L1=Math.hypot(P0.x,P0.y,P0.z),L2n=Math.hypot(P1.x,P1.y,P1.z);
+  if(L1<=R||L2n<=R)return direct;
+  const t1=Math.sqrt(L1*L1-R*R),t2=Math.sqrt(L2n*L2n-R*R);
+  const cphi=Math.max(-1,Math.min(1,(P0.x*P1.x+P0.y*P1.y+P0.z*P1.z)/(L1*L2n)));
+  const arc=Math.max(0,Math.acos(cphi)-Math.acos(R/L1)-Math.acos(R/L2n));
+  return t1+t2+R*arc;
+}
+function vOrb(bi){const b=BODIES[bi];return Math.sqrt(b.GM/(b.R+b.h));}
+function aEff(mass,thr){return A0*(thr||100)/100*100/mass;}
+function chordTime(d,mass,thr){return 2*Math.sqrt(d/aEff(mass,thr));} /* seconds */
+function wellTime(o,dst,mass,thr){return KWELL*(vOrb(o)+vOrb(dst))/aEff(mass,thr);}
+/* Intercept a moving target: iterate arrival time in the frame CO-MOVING with
+   the origin body -- the ship departs carrying its orbital velocity, so the
+   distance that matters is the origin-relative separation at the moment of
+   arrival. (The origin frame accelerates around the Sun at ~6e-3 m/s^2 against
+   a ~120 m/s^2 burn: negligible, and negligibly ignored.) */
+function intercept(o,dst,day,mass,thr,excl){
+  const P0=posOf(o,day);
+  excl=excl||0;
+  let t=3600,d=1,ratio=1;
+  for(let i=0;i<14;i++){
+    const Pd=posOf(dst,day+t/DAY),Po=posOf(o,day+t/DAY);
+    d=Math.hypot(Pd.x-Po.x,Pd.y-Po.y,Pd.z-Po.z);
+    if(excl>0){const dh=Math.hypot(Pd.x-P0.x,Pd.y-P0.y,Pd.z-P0.z)||1;
+      ratio=detourLength(P0,Pd,excl)/dh;d*=ratio;}
+    t=chordTime(d,mass,thr)+wellTime(o,dst,mass,thr);
+  }
+  const P1=posOf(dst,day+t/DAY);
+  return {t:t,d:d,P0:P0,P1:P1,peak:2*d/(t-wellTime(o,dst,mass,thr)),detour:ratio>1.0005,ratio:ratio};
+}
+/* delicate arrival: can we shape the tangent insertion inside five minutes of burn? */
+function insertionDelicate(dst,mass,thr){return aEff(mass,thr)>=vOrb(dst)/300;}
+
+/* ================= THE SLINGSHOT ALMANAC =================
+   For delta-v-limited relics: a Tisserand-style flyby-sequence search in the
+   circular-coplanar approximation. Ports sling departures to escape (mass-driver
+   harbor services; the torch crowd never noticed they existed) and refuel tanks,
+   so the budget is pure heliocentric currency. Hohmann legs; each unpowered flyby
+   can retune v-infinity by up to 2*vinf*sin(delta_max/2) via resonant pumping
+   (VEEGA-style, charged in TIME: +1.5 orbits of the assist body); shortfalls are
+   powered and charged against the tanks. Aerocapture is free where there is air;
+   the giant planets brake you into their own moons for free; airless deep wells
+   cost their full arrival v-infinity, which is why Mercury humbled MESSENGER. */
+const MUSUN=1.32712440018e20;
+const AERO={1:1,2:1,4:1,9:1,10:1,11:1}; /* Venus, Earth, Mars, Titan, Uranus, Neptune */
+const FLYBYS=[1,2,4,6,8]; /* Venus, Earth, Mars, Jupiter, Saturn */
+function helioR(bi,day){const p=posOf(bi,day);return Math.hypot(p.x,p.y,p.z);}
+function vCircSun(r){return Math.sqrt(MUSUN/r);}
+function hohm(ra,rb){
+  const at=(ra+rb)/2;
+  return {vA:Math.abs(Math.sqrt(MUSUN*(2/ra-1/at))-vCircSun(ra)),
+          vB:Math.abs(Math.sqrt(MUSUN*(2/rb-1/at))-vCircSun(rb)),
+          tof:Math.PI*Math.sqrt(at*at*at/MUSUN)};
+}
+function orbPeriod(bi,day){const r=helioR(bi,day);return 2*Math.PI*Math.sqrt(r*r*r/MUSUN);}
+function flybyKick(bi,vinf){ /* max free |v-inf| retune at this body */
+  const b=BODIES[bi],rp=b.R*1.1;
+  const dmax=2*Math.asin(Math.min(1,1/(1+rp*vinf*vinf/b.GM)));
+  return 2*vinf*Math.sin(dmax/2);
+}
+function almanac(origin,target,day,budget){
+  if(origin===target)return null;
+  const rO=helioR(origin,day),rT=helioR(target,day);
+  const parentGiant=BODIES[target].moon&&!BODIES[BODIES[target].moon.of].port;
+  const seqs=[[]];
+  for(const a3 of FLYBYS){seqs.push([a3]);
+    for(const b3 of FLYBYS){seqs.push([a3,b3]);
+      for(const c3 of FLYBYS)seqs.push([a3,b3,c3]);}}
+  let best=null;
+  for(const seq of seqs){
+    if(seq.indexOf(target)>=0)continue;
+    const radii=[rO].concat(seq.map(function(f){return helioR(f,day);})).concat([rT]);
+    let burn=0,time=0,vin=0,ok=true;
+    for(let i=0;i<radii.length-1;i++){
+      if(Math.abs(radii[i]-radii[i+1])<1e7){ok=false;break;}
+      const h=hohm(radii[i],radii[i+1]);
+      if(i===0)burn+=h.vA; /* the departure burn (harbor sling covers the well) */
+      else{
+        const kick=flybyKick(seq[i-1],Math.max(vin,100));
+        burn+=Math.max(0,Math.abs(h.vA-vin)-kick);
+        time+=1.5*orbPeriod(seq[i-1],day); /* resonant pumping */
+      }
+      time+=1.5*h.tof; /* transfer + phasing wait */
+      vin=h.vB;
+    }
+    if(!ok)continue;
+    if(!(AERO[target]||parentGiant))burn+=vin; /* propulsive capture at airless worlds */
+    if(burn>budget)continue;
+    if(!best||time<best.time)best={seq:seq.slice(),time:time,burn:burn};
+  }
+  return best;
+}
+
+/* ---- 1D flight plan along the chord (same machinery as the interstellar game) ---- */
+function makePlan(d,a){
+  const Tt=2*Math.sqrt(d/a);
+  return {d:d,a:a,total:Tt,overshoot:0,maxOver:0,ph:[
+    {t0:0,t1:Tt/2,s0:0,v0:0,acc:a},
+    {t0:Tt/2,t1:Tt,s0:d/2,v0:a*Tt/2,acc:-a}]};
+}
+function planState(plan,t){
+  t=Math.max(0,Math.min(t,plan.total));
+  for(const p of plan.ph)if(t<=p.t1+1e-9){
+    const dt=t-p.t0;return {s:p.s0+p.v0*dt+p.acc*dt*dt/2,v:p.v0+p.acc*dt};}
+  return {s:plan.d,v:0};
+}
+function planPhase(plan,t){
+  for(const p of plan.ph)if(t<=p.t1+1e-9)return p;
+  return plan.ph[plan.ph.length-1];
+}
+function replan(plan,t1,a){
+  const st=planState(plan,t1);let s=st.s,v=st.v,t=t1;
+  const d=plan.d,hist=[],fut=[];
+  for(const p of plan.ph){
+    if(p.t1<=t1+1e-9)hist.push(p);
+    else if(p.t0<t1-1e-9){hist.push({t0:p.t0,t1:t1,s0:p.s0,v0:p.v0,acc:p.acc});break;}
+    else break;
+  }
+  plan.overshoot=0;
+  let D=d-s,u=D>=0?1:-1,w=v*u;
+  if(w<0){const tb=-w/a;
+    fut.push({t0:t,t1:t+tb,s0:s,v0:v,acc:u*a});
+    s+=v*tb+u*a*tb*tb/2;t+=tb;v=0;w=0;D=d-s;u=D>=0?1:-1;}
+  const absD=Math.abs(D);
+  if(w*w/(2*a)>absD+1e-9){
+    const tb=w/a;
+    fut.push({t0:t,t1:t+tb,s0:s,v0:u*w,acc:-u*a});
+    s+=u*(w*tb-a*tb*tb/2);t+=tb;
+    const over=Math.abs(d-s),back=(d-s)>=0?1:-1,th=Math.sqrt(over/a);
+    fut.push({t0:t,t1:t+th,s0:s,v0:0,acc:back*a});
+    fut.push({t0:t+th,t1:t+2*th,s0:s+back*a*th*th/2,v0:back*a*th,acc:-back*a});
+    t+=2*th;
+    plan.overshoot=over;plan.maxOver=Math.max(plan.maxOver,over);
+  }else{
+    const tau=(-w+Math.sqrt(w*w/2+a*absD))/a,vp=w+a*tau;
+    fut.push({t0:t,t1:t+tau,s0:s,v0:u*w,acc:u*a});
+    fut.push({t0:t+tau,t1:t+tau+vp/a,s0:s+u*(w*tau+a*tau*tau/2),v0:u*vp,acc:-u*a});
+    t+=tau+vp/a;
+  }
+  plan.ph=hist.concat(fut);plan.total=t;plan.a=a;
+  return plan.overshoot;
+}
+
+/* ================= SHIPS (the fleet came down the well with us) ================= */
+const SHIPS=[
+ {id:'pod',      n:'Escape Pod',           mass:10, thr:5,   price:400,  noSale:true, note:'A coffin with a candle on the back. Not for sale — fate issues these.'},
+ {id:'coracle',  n:'Space Coracle',        mass:10, thr:5,   price:500,  note:'Mechanically identical to an escape pod, but hand-woven, and you CHOSE it. Half a Cog’s power-to-weight; a vessel for philosophers.'},
+ {id:'saucer',   n:'Classic Flying Saucer',mass:20, thr:67,  price:2800, note:'Chrome, ineffable, seats four abductees. The quickest thing flying under ~105 mass of cargo.'},
+ {id:'hilux',    n:'Space-Faering',        mass:50, thr:83,  price:3200, note:'Light, open, quick — the honest little boat of the space-lanes. Outruns an Astro-Cog under ~195 mass of cargo.'},
+ {id:'mule',     n:'Astro-Cog',            mass:100,thr:100, price:5000, note:'The venerable reference freighter. Honest, ubiquitous, slow when greedy.'},
+ {id:'icarus',   n:'Icarus Solar Dhow',    mass:75, thr:75,  price:9000, note:'Solar-rated: certified inside the exclusion line (0.19 AU) — cuts across the Sun’s doorstep so long as it doesn’t actually touch, and its shielding halves CME losses.',special:'icarus'},
+ {id:'barque',   n:'Solar Barque',         mass:150,thr:130, price:15000,note:'The Dhow’s heavy sister: 150 mass of solar-rated hull that hauls real cargo through the corona line, shielding and all. Ra would approve.',special:'icarus'},
+ {id:'drom',     n:'Astral Carrack',       mass:200,thr:120, price:11000,note:'Mid hauler. Faster than an Astro-Cog beyond 400 mass of cargo.'},
+ {id:'orion',    n:"T'Khasi Orion",        mass:25, thr:100, price:20000,note:'The legend: a Cog-class drive on a hull pared to 25 mass — four times the power-to-weight, four times the price. Racing drive; temperamental.',special:'fragile'},
+ {id:'galliot',  n:'Interplanetary Galliot',mass:150,thr:140, price:16000,note:'Bristles with point-defense. Pirates sheer off or die trying (−90% pirate danger).',special:'galliot'},
+ {id:'bactrian', n:'Star Galleass',        mass:300,thr:132, price:20000,note:'Heavy hauler. Faster than an Astral Carrack beyond 800 mass of cargo.'},
+ {id:'conestoga',n:'Space Galleon',        mass:400,thr:139, price:32000,note:'The flagship: a warehouse with engines. Fastest of the honest haulers beyond ~1,600 mass of cargo.'},
+ {id:'apollo',   n:'Apollo CSM (museum-grade)',mass:30,thr:0.76,price:12000,dv:2800,special:'apollo',
+  note:'A lovingly restored relic with its REAL propellant load: 2,800 m/s of delta-v — routed by the Slingshot Almanac at the stately pace of chemistry. Ownership enrolls your credits in the Quixotic Eccentrics Endowment: a guaranteed 6% per annum while you drift, so at least your money is going somewhere.'}
+];
+
+/* ================= GOODS (src = body index; bio goods fear solar storms) ================= */
+const GOODS=[
+ {id:'coffee', n:'Coffee',               u:'crate', wt:2, base:40,  src:[2], bio:true},
+ {id:'vaccine',n:'Vaccine printers',     u:'case',  wt:1, base:130, src:[2], bio:true},
+ {id:'media',  n:'Earth media rights',   u:'archive',wt:1,base:25,  src:[2]},
+ {id:'spares', n:'Machine spares',       u:'crate', wt:3, base:90,  src:[2]},
+ {id:'mangos', n:'Mangos',               u:'crate', wt:2, base:75,  src:[2], bio:true, perish:{grace:4,keep:0.5}},
+ {id:'seeds',  n:'Terraforming seed vault',u:'vault',wt:4,base:120, src:[2], bio:true},
+ {id:'he3',    n:'Helium-3',             u:'flask', wt:1, base:260, src:[3]},
+ {id:'regglass',n:'Regolith glass',      u:'pane',  wt:2, base:55,  src:[3]},
+ {id:'cement', n:'Vacuum cement',        u:'sack',  wt:5, base:18,  src:[3]},
+ {id:'foil',   n:'Solar foil',           u:'roll',  wt:1, base:85,  src:[0]},
+ {id:'metals', n:'Day-side metals',      u:'ingot', wt:6, base:150, src:[0]},
+ {id:'pharma', n:'Float-farm pharma',    u:'case',  wt:1, base:140, src:[1], bio:true},
+ {id:'sulfur', n:'Sulfur compounds',     u:'drum',  wt:4, base:30,  src:[1]},
+ {id:'grain',  n:'Settler grain',        u:'tonne', wt:3, base:20,  src:[4], bio:true},
+ {id:'ochre',  n:'Martian ochre',        u:'cask',  wt:2, base:35,  src:[4]},
+ {id:'fossils',n:'Xenofossils',          u:'slab',  wt:1, base:420, src:[4], contraband:true},
+ {id:'ice',    n:'Water ice',            u:'tonne', wt:5, base:12,  src:[3,5,7,9]}, /* ice worlds everywhere; only the dry inner planets pay */
+ {id:'volatiles',n:'Belt volatiles',     u:'tank',  wt:4, base:28,  src:[5]},
+ {id:'astergris',n:'Astergris',          u:'lump',  wt:1, base:380, src:[5]}, /* like ambergris, but from space; where it comes from, no one is really sure, and Ceres isn't saying */
+ {id:'isotopes',n:'Magnetosphere isotopes',u:'cell',wt:2, base:160, src:[7]},
+ {id:'radhard',n:'Rad-hard electronics', u:'crate', wt:1, base:190, src:[7]},
+ {id:'methane',n:'Titan methane',        u:'tank',  wt:4, base:45,  src:[9], halflife:4},
+ {id:'tholins',n:'Tholin polymers',      u:'drum',  wt:2, base:75,  src:[9]},
+ {id:'cryohe', n:'Cryo-helium',          u:'dewar', wt:3, base:120, src:[10]},
+ {id:'diamonds',n:'Neptune diamond hail',u:'case',  wt:1, base:480, src:[11]},
+ {id:'relics', n:'Kuiper relics',        u:'relic', wt:1, base:520, src:[12], contraband:true},
+ {id:'antiques',n:'Cryo-vault antiques', u:'lot',   wt:1, base:240, src:[12]},
+ {id:'plates', n:'Golden Record replica plates',u:'plate',wt:1,base:110,src:[13]} /* engraved like the real one; the whole value is that almost nobody has one */
+];
+
+/* ================= STATE & ECONOMY ================= */
+let S=null;
+
+function newState(){return {cr:200,loc:2,day:0,tauDeficit:0,epoch:Date.now(),ship:'hilux',qship:false,heat:1,cargo:{},lots:{},visited:[2],rumors:[],bought:{},paid:{},won:false,platesSold:{}};}
+function dateStr(day){const d=new Date(EPOCH_MS+day*86400000);
+  return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric',timeZone:'UTC'})+' '+
+    String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');}
+function ship(){return SHIPS.find(function(x){return x.id===S.ship;});}
+function cargoMass(){let m=0;for(const g of GOODS)m+=(S.cargo[g.id]||0)*g.wt;return m;}
+function shipMass(){return ship().mass+cargoMass()+(S.qship?100:0);}
+function hash3(a,b,c){let h=2166136261;for(const v of[a,b,c]){h^=v;h=Math.imul(h,16777619);}
+  h^=h>>>13;h=Math.imul(h,2246822507);h^=h>>>16;return (h>>>0)/4294967295;}
+function tick(){return Math.floor(S.day);} /* daily markets down the well */
+/* a remote museum buys only what a remote museum can use */
+const VOYAGER_BUYS=['coffee','mangos','spares','ice','vaccine','media'];
+function portBuys(sys,gi){
+  if(sys!==13)return true;
+  const g=GOODS[gi];
+  return VOYAGER_BUYS.indexOf(g.id)>=0||g.src.indexOf(13)>=0;
+}
+function rumorAt(sys,gi){if(!S.rumors)return null;
+  for(const r of S.rumors)if(r.sys===sys&&r.good===gi&&S.day<=r.expires)return r;
+  return null;}
+function activeRumors(){return (S.rumors||[]).filter(function(r){return S.day<=r.expires;});}
+function fmtLight(d){ /* ls under a minute's worth, then light-minutes, then AU */
+  const ls=d/2.998e8;
+  if(ls<60)return ls.toFixed(2)+' ls';
+  if(ls<3600)return (ls/60).toFixed(1)+' lm';
+  return (d/AUm).toFixed(2)+' AU';
+}
+function fmtDist(d){return d<0.05*AUm?fmtLight(d):(d/AUm).toFixed(2)+' AU';}
+function fmtSpeed(v){ /* v in m/s: light-seconds per hour, escalating to light-minutes per hour */
+  const lsh=v*3600/CEE;
+  if(lsh<60)return (lsh>=10?fmt(lsh):lsh.toFixed(1))+' ls/h';
+  return (lsh/60).toFixed(1)+' lm/h';
+}
+function price(sys,gi){
+  const g=GOODS[gi];
+  const dmin=Math.min.apply(null,g.src.map(function(s2){return distAU(sys,s2,S.day);}));
+  let p=g.base*(0.5+0.55*Math.sqrt(dmin));
+  p*=0.85+0.3*hash3((sys*73856093)^(gi*19349663),tick(),911); /* spread primes: each good wobbles INDEPENDENTLY per port per day */
+  const _r=rumorAt(sys,gi);if(_r)p*=_r.mult;
+  if(g.id==='plates')p*=Math.pow(0.5,(S.platesSold&&S.platesSold[sys])||0); /* novelty demand halves per plate already sold here */
+  return Math.max(1,Math.round(p));
+}
+function stock(sys,gi){
+  const g=GOODS[gi];
+  const dmin=Math.min.apply(null,g.src.map(function(s2){return distAU(sys,s2,S.day);}));
+  const q=Math.round((4+40*Math.exp(-dmin/3))*(0.6+0.8*hash3((sys*83492791)^(gi*49979687),tick(),313)));
+  const taken=S.bought[sys+'_'+gi+'_'+tick()]||0;
+  return Math.max(dmin<0.02?8:0,q)-taken;
+}
+function marketDepth(sys,gi){ /* how many units a port absorbs at full price today */
+  const g=GOODS[gi];
+  const dmin=Math.min.apply(null,g.src.map(function(s2){return distAU(sys,s2,S.day);}));
+  const nat=Math.round((4+40*Math.exp(-dmin/3))*(0.6+0.8*hash3((sys*83492791)^(gi*49979687),tick(),313)));
+  return Math.max(12,nat);
+}
+function sellRevenue(sys,gi,q){
+  const p=price(sys,gi);
+  if(GOODS[gi].id==='plates'){ /* each successive plate sold here fetches half the last */
+    const cr=Math.round(p*2*(1-Math.pow(0.5,q)));
+    return {cr:cr,avg:q?cr/q:p,plates:true,flooded:q>1,depth:1};
+  }
+  const D=marketDepth(sys,gi);
+  if(q<=D)return {cr:p*q,avg:p,flooded:false,depth:D};
+  const cr=Math.round(p*(D*(1+Math.log(q/D))));
+  return {cr:cr,avg:cr/q,flooded:true,depth:D};
+}
+function netWorth(){let w=S.cr+tradeInValue();for(let i=0;i<GOODS.length;i++)w+=(S.cargo[GOODS[i].id]||0)*(portBuys(S.loc,i)?price(S.loc,i):0);return w;}
+/* perishables: per-DAY decay down here */
+function decaySpan(g,a0d,a1d){
+  if(g.halflife)return Math.pow(0.5,(a1d-a0d)/g.halflife);
+  if(g.perish){ /* accelerating spoilage (Weibull k=2): ripening is autocatalytic,
+       so the hazard GROWS past the grace day — survival = keep^(x^2), x = days past grace.
+       Day 1 past grace costs half; day 2 takes 87% of what remains; day 3 is a massacre.
+       (Boil-off half-lives above stay constant-rate: that is physics, not biology.) */
+    const t0=Math.max(0,a0d-g.perish.grace),t1=Math.max(0,a1d-g.perish.grace);
+    return Math.pow(g.perish.keep,t1*t1-t0*t0);}
+  return 1;
+}
+function decayCargo(prevDay){
+  for(const g of GOODS){
+    if(!g.perish&&!g.halflife)continue;
+    const lots=S.lots[g.id]||[];let tot=0;const before=S.cargo[g.id]||0;
+    for(const L of lots){
+      const exact=L.q*decaySpan(g,prevDay-L.d,S.day-L.d),fl=Math.floor(exact);
+      L.q=fl+((exact-fl)>0&&Math.random()<(exact-fl)?1:0); /* the last fractional mango either rotted or it didn't */
+      tot+=L.q;}
+    S.lots[g.id]=lots.filter(function(L){return L.q>0;});
+    if(tot!==before){
+      if(tot)S.cargo[g.id]=tot;else delete S.cargo[g.id];
+      const n=before-tot;
+      if(n>0)log(n+' '+g.u+(n>1?'s':'')+' of '+g.n+' '+(g.halflife?'boiled off':'went bad')+'.');
+    }
+  }
+}
+function consumeLots(g,q){
+  if(!g.perish&&!g.halflife)return;
+  let rem=q;const lots=S.lots[g.id]||[];
+  for(const L of lots){const take=Math.min(L.q,rem);L.q-=take;rem-=take;if(!rem)break;}
+  S.lots[g.id]=lots.filter(function(L){return L.q>0;});
+}
+/* shipyards: Earth = catalogue; elsewhere used lots */
+function yardStock(){
+  if(S.loc===2)return SHIPS.map(function(x,i){return i;}).filter(function(i){return !SHIPS[i].noSale;});
+  const out=[];
+  for(let i=0;i<SHIPS.length;i++)if(!SHIPS[i].noSale&&hash3((S.loc*15485863)^(i*32452843),tick(),555)<0.32)out.push(i);
+  return out;
+}
+function shipListPrice(i){return Math.round(SHIPS[i].price*(S.loc===2?1:0.85));}
+function tradeInValue(){
+  const idx=SHIPS.findIndex(function(x){return x.id===S.ship;});
+  return Math.round(SHIPS[idx].price*(S.loc===2?0.55:0.75));
+}
+/* ================= UI PLUMBING ================= */
+function $(id){return document.getElementById(id);}
+function show(id){document.querySelectorAll('.screen').forEach(function(s2){s2.classList.remove('active');});$(id).classList.add('active');
+  if(id==='scr-setout')attachCanvas('mapbox');
+  if(id==='scr-transit')attachCanvas('transitbox');}
+function esc(s2){return String(s2).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function fmt(n){return Math.round(n).toLocaleString('en-US');}
+function fmtT(sec){ /* pretty duration */
+  if(sec<5400)return (sec/60).toFixed(0)+' min';
+  if(sec<DAY*2)return (sec/3600).toFixed(1)+' h';
+  if(sec<DAY*365)return (sec/DAY).toFixed(2)+' d';
+  return (sec/(DAY*365.25)).toFixed(1)+' yr';
+}
+let LOGBUF=[];
+function log(msg,cls){LOGBUF.unshift({d:S.day,m:msg,c:cls||''});if(LOGBUF.length>40)LOGBUF.pop();renderLog();}
+function renderLog(){$('log').innerHTML=LOGBUF.map(function(e,i){
+  return '<div class="'+(i===0?'new ':'')+(e.c||'')+'">['+dateStr(e.d)+'] '+e.m+'</div>';}).join('');}
+function statusHTML(){
+  const m=shipMass(),nw=netWorth(),sh=ship();
+  const allVisited=S.visited.length===PORTS.length;
+  return '<span>&#128176; <b>'+fmt(S.cr)+'</b> cr</span>'+
+    '<span>&#128640; <b>'+esc(sh.n)+'</b></span>'+
+    '<span>&#128197; '+dateStr(S.day)+'</span>'+
+    '<span>&#9875; mass <b>'+fmt(m)+'</b> <span class="dim">(hull '+sh.mass+' + cargo '+fmt(cargoMass())+(S.qship?' + Q-ship 100':'')+')</span></span>'+
+    '<span>&#127942; estate <b>'+fmt(nw)+'</b> <span class="dim">(started '+fmt(S.estate0||1960)+')</span></span>'+
+    (S.tauDeficit>1/DAY?'<span class="dim">&#8987; ship clock &minus;'+fmtT(S.tauDeficit*DAY)+' vs standard</span>':'')+
+    '<span class="dim">ports '+S.visited.length+'/'+PORTS.length+(allVisited&&S.loc!==2?' <span class="grn">— all visited! return to Earth</span>':'')+'</span>';
+}
+/* ================= PORT ================= */
+function showPort(){
+  const b=BODIES[S.loc];
+  const host=b.moon?BODIES[b.moon.of]:null;
+  $('port-name').innerHTML=esc(b.n)+' <span class="dim" style="font-size:.7em">'+
+    (host?'moon of '+esc(host.n)+' · ':'')+distAU(S.loc,2,S.day).toFixed(2)+' AU from Earth · v<sub>orb</sub> '+(vOrb(S.loc)/1000).toFixed(2)+' km/s</span>';
+  $('port-desc').textContent=b.desc;
+  $('yardbtn').innerHTML=(S.loc===2?'EARTH ORBITAL YARDS':'USED SHIP LOT')+' &rarr;';
+  S.rumors=(S.rumors||[]).filter(function(r){return S.day<=r.expires;});
+  const _nr=activeRumors().length;
+  $('rumorsbtn').innerHTML='RUMORS'+(_nr?' <span class="gold">('+_nr+')</span>':'')+' &rarr;';
+  $('statusbar').innerHTML=statusHTML();
+  renderMarket();renderManifest();renderLog();
+  show('scr-port');
+  saveGame();
+  if(!S.won&&S.loc===2&&S.visited.length===PORTS.length)win();
+}
+function renderManifest(){
+  const sh=ship();
+  let rows='<tr><td class="cyan">'+esc(sh.n)+'</td><td class="r dim">hull mass '+sh.mass+'</td><td class="r dim">thrust '+sh.thr+(S.qship?' · Q-ship fitted':'')+'</td></tr>',any=false;
+  for(const g of GOODS){const q=S.cargo[g.id]||0;if(!q)continue;any=true;
+    let fresh='';
+    if((g.perish||g.halflife)&&S.lots[g.id]&&S.lots[g.id].length){
+      const oldest=S.day-Math.min.apply(null,S.lots[g.id].map(function(L){return L.d;}));
+      fresh=' <span class="'+(g.perish&&oldest>g.perish.grace-1?'red':'dim')+'">('+oldest.toFixed(1)+'d old)</span>';}
+    rows+='<tr><td>'+esc(g.n)+fresh+'</td><td class="r">'+q+' '+esc(g.u)+(q>1?'s':'')+'</td><td class="r dim">'+(q*g.wt)+' mass</td></tr>';}
+  $('manifest').innerHTML='<table>'+rows+(any?'':'<tr><td colspan="3" class="dim">Hold is empty. The ship flies light.</td></tr>')+'</table>';
+}
+function renderMarket(){
+  $('mkt-note').textContent='— goods produced here or nearby, plus your cargo; prices move daily with the planets themselves';
+  const carried={};
+  if(S.loc===13){ /* the museum's wanted board: its own gift-shop stock plus what the staff can use */
+    for(let i=0;i<GOODS.length;i++)if(portBuys(13,i))carried[i]=1;
+  }else{
+    const dm=GOODS.map(function(g,i){return {i:i,d:Math.min.apply(null,g.src.map(function(s2){return distAU(S.loc,s2,S.day);}))};});
+    dm.sort(function(a2,b2){return a2.d-b2.d;});
+    const nLocal=dm.filter(function(o){return o.d<0.02;}).length;
+    dm.slice(0,Math.max(6,nLocal)).forEach(function(o){carried[o.i]=1;});
+  }
+  let h='<tr><th>good</th><th class="r">mass/unit</th><th class="r">price</th><th class="r">avg paid</th><th class="r">stock</th><th class="r">you hold</th><th class="c" colspan="2">trade</th></tr>';
+  for(let i=0;i<GOODS.length;i++){
+    const g=GOODS[i],p=price(S.loc,i),stk=stock(S.loc,i),have=S.cargo[g.id]||0;
+    const buysHere=portBuys(S.loc,i);
+    if((!carried[i]||(stk<=0&&S.loc!==13))&&!have)continue;
+    const pd=S.paid[g.id],avg=(pd&&pd.q)?pd.c/pd.q:null;
+    const avgCell=avg===null?'<td class="r dim">&mdash;</td>'
+      :'<td class="r '+(p<avg*0.9?'grn':(p>avg*1.1?'cyan':'dim'))+'">'+fmt(avg)+'</td>';
+    const src=g.src.indexOf(S.loc)>=0;
+    const others=PORTS.filter(function(j){return j!==S.loc&&portBuys(j,i);});
+    const topHere=buysHere&&others.every(function(jj){return p>=price(jj,i);});
+    h+='<tr'+(have?' class="mine"':'')+'><td>'+esc(g.n)+(g.contraband?' <span class="contra">&#9888; contraband</span>':'')+(src?' <span class="cyan">&#9733; local</span>':'')+
+      (topHere?' <span class="gold">&#9650; highest price in the system</span>':'')+
+      (rumorAt(S.loc,i)?' <span class="grn">&#9670; anomalous demand until '+dateStr(rumorAt(S.loc,i).expires)+'</span>':'')+
+      (g.perish?' <span class="dim">perishable &gt;'+g.perish.grace+'d</span>':'')+(g.halflife?' <span class="dim">boil-off t½ '+g.halflife+'d</span>':'')+
+      (!buysHere?' <span class="dim">— no buyers at a museum</span>':'')+'</td>'+
+      '<td class="r dim">'+g.wt+'</td><td class="r gold">'+(buysHere?fmt(p):'&mdash;')+'</td>'+avgCell+'<td class="r dim">'+Math.max(0,stk)+'</td><td class="r">'+(have||'&mdash;')+'</td>'+
+      '<td class="c"><span class="qty"><button onclick="buy('+i+',1)" '+(stk<1||S.cr<p?'disabled':'')+'>buy</button>'+
+      '<button onclick="buy('+i+',5)" '+(stk<5||S.cr<p*5?'disabled':'')+'>+5</button>'+
+      '<button onclick="buy('+i+',999)" '+(stk<1||S.cr<p?'disabled':'')+'>max</button></span></td>'+
+      '<td class="c"><span class="qty"><button onclick="sell('+i+',1)" '+(have<1||!buysHere?'disabled':'')+'>sell</button>'+
+      '<button onclick="sell('+i+',999)" '+(have<1||!buysHere?'disabled':'')+'>all</button></span></td></tr>';
+  }
+  $('market').innerHTML=h;
+}
+function buy(gi,q){
+  const g=GOODS[gi],p=price(S.loc,gi),stk=stock(S.loc,gi);
+  q=Math.min(q,stk,Math.floor(S.cr/p));
+  if(q<1)return;
+  S.cr-=q*p;S.cargo[g.id]=(S.cargo[g.id]||0)+q;
+  const pd=S.paid[g.id]||(S.paid[g.id]={q:0,c:0});pd.q+=q;pd.c+=q*p;
+  if(g.perish||g.halflife)(S.lots[g.id]=S.lots[g.id]||[]).push({q:q,d:S.day});
+  const k=S.loc+'_'+gi+'_'+tick();S.bought[k]=(S.bought[k]||0)+q;
+  log('Bought '+q+' '+g.u+(q>1?'s':'')+' of '+g.n+' @ '+fmt(p)+' cr.');
+  $('statusbar').innerHTML=statusHTML();renderMarket();renderManifest();
+}
+function sell(gi,q,confirmed){
+  if(!portBuys(S.loc,gi))return; /* a museum wants what a museum wants */
+  const g=GOODS[gi],have=S.cargo[g.id]||0;
+  q=Math.min(q,have);if(q<1)return;
+  if(g.id==='plates'&&!confirmed){
+    const sold=(S.platesSold&&S.platesSold[S.loc])||0;
+    if(sold+q>1){
+      const choices=[];
+      if(sold===0&&q>1)choices.push({t:'Sell just one (full price)',primary:true,f:function(){sell(gi,1,true);}});
+      choices.push({t:'Sell '+(q>1?'all '+q:'it')+' anyway',f:function(){sell(gi,q,true);}});
+      choices.push({t:'Keep '+(q>1?'them':'it'),f:function(){}});
+      modal('A MATTER OF RARITY',
+        'The whole worth of a Golden Record replica plate is that almost nobody has one. '+(sold>0?'This market has already taken one off your hands, and ':'')+'any further plate sold in the <em>same</em> market fetches <span class="red">substantially less</span> than the last \u2014 the buyers here pay a premium only for the novelty of the first.',
+        choices);
+      return;
+    }
+  }
+  const r=sellRevenue(S.loc,gi,q);
+  S.cr+=r.cr;S.cargo[g.id]=have-q;if(!S.cargo[g.id])delete S.cargo[g.id];
+  if(g.id==='plates'){S.platesSold=S.platesSold||{};S.platesSold[S.loc]=(S.platesSold[S.loc]||0)+q;}
+  consumeLots(g,q);
+  const note=r.plates?(q>1?' \u2014 the commemorative market sours fast; each plate fetched half the last':''):(r.flooded?' \u2014 bulk sale flooded the market past ~'+r.depth+', '+fmt(Math.round(r.avg))+' cr/'+g.u+' avg':' @ '+fmt(r.avg)+' cr each');
+  log('Sold '+q+' '+g.u+(q>1?'s':'')+' of '+g.n+' for '+fmt(r.cr)+' cr'+note+'.');
+  $('statusbar').innerHTML=statusHTML();renderMarket();renderManifest();
+}
+/* ================= SHIPYARD ================= */
+function showYard(){
+  $('statusbar3').innerHTML=statusHTML();
+  renderYard();
+  show('scr-yard');
+}
+function renderYard(){
+  $('yard-title').innerHTML=S.loc===2
+    ?'EARTH ORBITAL YARDS <span class="dim">— every hull in the catalogue at list price; they pay poorly for used</span>'
+    :'USED SHIP LOT <span class="dim">— whatever drifted in today, at used prices; they pay well for trade-ins</span>';
+  const stock2=yardStock().slice().sort(function(a2,b2){return SHIPS[a2].price-SHIPS[b2].price;}),ti=tradeInValue(),sh=ship();
+  let h='<tr><th>ship</th><th class="r">hull mass</th><th class="r">thrust</th><th></th><th class="r">price</th><th class="r">net after trade-in</th><th></th></tr>';
+  h+='<tr class="mine"><td>'+esc(sh.n)+' <span class="cyan">(yours)</span></td><td class="r">'+sh.mass+'</td><td class="r">'+sh.thr+'</td><td class="dim" style="font-size:.85em">'+sh.note+'</td><td class="r">&mdash;</td><td class="r gold">trade-in '+fmt(ti)+'</td><td></td></tr>';
+  for(const i of stock2){const x=SHIPS[i];if(x.id===S.ship)continue;
+    const pr=shipListPrice(i),net=pr-ti;
+    h+='<tr><td>'+esc(x.n)+'</td><td class="r">'+x.mass+'</td><td class="r">'+x.thr+'</td>'+
+      '<td class="dim" style="font-size:.85em">'+x.note+'</td><td class="r gold">'+fmt(pr)+'</td><td class="r">'+(net>=0?fmt(net):'<span class="grn">+'+fmt(-net)+' back</span>')+'</td>'+
+      '<td class="c"><button onclick="buyShip('+i+')" '+(S.cr<net?'disabled':'')+'>buy</button></td></tr>';
+  }
+  const qAvail=S.loc===2||hash3(S.loc*29,tick(),888)<0.4;
+  if(S.qship||qAvail){
+    const qp=Math.round(7500*(S.loc===2?1:0.85));
+    h+='<tr><td class="gold">Q-Ship Package</td><td class="r">+100</td><td class="r">&mdash;</td>'+
+      '<td class="dim" style="font-size:.85em">Concealed weapons bay — 100 mass of guns you pretend are grain: 67% to obliterate a pirate attacker outright. Fitted to your current hull; goes with it if you trade or lose the ship.</td>'+
+      (S.qship
+        ?'<td class="r cyan">fitted</td><td class="r">&mdash;</td><td></td>'
+        :'<td class="r gold">'+fmt(qp)+'</td><td class="r">'+fmt(qp)+'</td><td class="c"><button onclick="buyQship('+qp+')" '+(S.cr<qp?'disabled':'')+'>fit</button></td>');
+    h+='</tr>';
+  }
+  $('shipyard').innerHTML=h;
+}
+function buyShip(i){
+  const x=SHIPS[i],net=shipListPrice(i)-tradeInValue();
+  if(S.cr<net)return;
+  S.cr-=net;
+  if(S.qship){S.qship=false;log('The Q-ship package went with the old hull.');}
+  log('Traded the '+ship().n+' for a '+x.n+(net>=0?' ('+fmt(net)+' cr)':' (+'+fmt(-net)+' cr back)')+'.');
+  S.ship=x.id;
+  $('statusbar3').innerHTML=statusHTML();renderYard();
+}
+function buyQship(p){
+  if(S.cr<p||S.qship)return;
+  S.cr-=p;S.qship=true;
+  log('Fitted a Q-ship package to the '+ship().n+'.');
+  $('statusbar3').innerHTML=statusHTML();renderYard();
+}
+/* ================= WIN / SCORES ================= */
+function win(){
+  S.won=true;
+  const worth=netWorth(),e0=S.estate0||1960,gain=worth-e0,days=Math.max(S.day,0.05),roi=gain/e0/days*100;
+  S.lastScore={gain:gain,roi:roi,worth:worth};
+  $('win-text').innerHTML='On <span class="gold">'+dateStr(S.day)+'</span> you splash back into Earth orbit with all '+PORTS.length+' ports’ dust and dockmarks on the hull — the Grand Tour of Sol in <span class="cyan">'+S.day.toFixed(1)+' days</span>, coming home in the '+esc(ship().n)+'.'+
+    '<br><br>Estate on departure: <span class="dim">'+fmt(e0)+' cr</span>'+
+    '<br>Estate on return: <span class="gold">'+fmt(worth)+' cr</span>'+
+    '<br>Gain: <span class="'+(gain>=0?'grn':'red')+'">'+fmt(gain)+' cr</span> over '+days.toFixed(1)+' standard days'+
+    (S.tauDeficit>1/DAY?'<br><span class="dim">Your own clocks say you were gone '+fmtT(S.tauDeficit*DAY)+' less than that — the torch kept you young.</span>':'')+
+    '<br><br><span class="cyan" style="font-size:1.3em">'+roi.toFixed(1)+'% ROI / day</span>';
+  saveGame();
+  renderScores();
+  show('scr-win');
+}
+function loadScores(){try{return JSON.parse(localStorage.getItem('solarrun_scores'))||[];}catch(e){return [];}}
+function recordScore(){
+  if(!S.lastScore||S.scoreSaved)return;
+  const name=(($('hsname').value||'').trim()||'Anonymous Spacer').slice(0,24);
+  const sc=loadScores();
+  sc.push({n:name,roi:Math.round(S.lastScore.roi*10)/10,gain:Math.round(S.lastScore.gain),days:Math.round(S.day*10)/10,ship:ship().n,when:dateStr(S.day)});
+  sc.sort(function(a2,b2){return (b2.roi||0)-(a2.roi||0);});
+  try{localStorage.setItem('solarrun_scores',JSON.stringify(sc.slice(0,20)));}catch(e){}
+  S.scoreSaved=true;saveGame();
+  renderScores();
+}
+function scoresTable(limit){
+  const sc=loadScores().slice(0,limit||10);
+  if(!sc.length)return '';
+  let h='<table style="max-width:680px;margin:0 auto"><tr><th>#</th><th>captain</th><th class="r">%ROI/day</th><th class="r">gain</th><th class="r">days</th><th>ship</th><th>returned</th></tr>';
+  sc.forEach(function(x,i){h+='<tr><td class="dim">'+(i+1)+'</td><td>'+esc(x.n)+'</td><td class="r gold">'+(typeof x.roi==='number'?x.roi.toFixed(1)+'%':'—')+'</td><td class="r">'+fmt(x.gain)+'</td><td class="r dim">'+x.days+'</td><td class="dim">'+esc(x.ship)+'</td><td class="dim">'+esc(x.when||'')+'</td></tr>';});
+  return h+'</table>';
+}
+function renderScores(){
+  $('hsform').style.display=S.scoreSaved?'none':'';
+  $('scores').innerHTML=scoresTable(10);
+}
+function keepFlying(){showPort();}
+/* ================= RUMOR LEDGER (ported from the interstellar game) ================= */
+function openRumors(){$('statusbar-r').innerHTML=statusHTML();renderRumors();show('scr-rumors');}
+function renderRumors(){
+  const rs=activeRumors();
+  if(!rs.length){$('rumorlist').innerHTML='<p class="dim">No active rumors. Trade manifests with mail packets while in transit and word of the next price spike will find you.</p>';return;}
+  const m=shipMass(),thr=ship().thr;
+  $('rumorlist').innerHTML=rs.map(function(r){
+    const g=GOODS[r.good],pNow=price(r.sys,r.good),have=S.cargo[g.id]||0;
+    let srcBest=null;
+    for(const p2 of PORTS){
+      if(p2===r.sys)continue;
+      if(stock(p2,r.good)>0){
+        const d2=distM(S.loc,p2,S.day);
+        if(!srcBest||price(p2,r.good)<srcBest.pr)srcBest={sys:p2,pr:price(p2,r.good),d:d2};
+      }
+    }
+    const itc=r.sys===S.loc?null:intercept(S.loc,r.sys,S.day,m,thr,shipExcl());
+    return '<div class="rumorcard">'+
+      '<span class="gold">'+esc(BODIES[r.sys].n)+'</span> paying <span class="gold">&times;'+r.mult.toFixed(2)+'</span> for <span class="gold">'+esc(g.n)+'</span>'+
+      ' — currently <span class="gold">'+fmt(pNow)+' cr</span>/'+esc(g.u)+', good until <span class="cyan">'+dateStr(r.expires)+'</span>.'+
+      '<br><span class="dim">You hold '+(have||'none')+'.'+
+      (srcBest?' Cheapest stocked source: '+esc(BODIES[srcBest.sys].n)+' @ '+fmt(srcBest.pr)+' cr ('+fmtDist(srcBest.d)+' away).':'')+'</span>'+
+      (r.sys===S.loc
+        ?'<br><span class="grn">You are here — sell while the word holds.</span>'
+        :'<br>Intercept from here: <span class="cyan">'+fmtT(itc.t)+'</span> at current mass. <button onclick="rumorGo('+r.sys+')">PLOT INTERCEPT &rarr;</button>'+
+         (srcBest&&srcBest.sys!==S.loc?' <button onclick="rumorGo('+srcBest.sys+')">SOURCE FIRST &rarr;</button>':''))+
+      '</div>'; /* the card CLOSES — v1.6.0 nested every card inside the last */
+  }).join('');
+}
+function rumorGo(sys){showSetout();selectDest(sys);}
+function saveGame(){try{localStorage.setItem('solarrun_save',JSON.stringify({v:VERSION,S:S,log:LOGBUF}));}catch(e){}}
+function loadGame(){try{
+  const d=JSON.parse(localStorage.getItem('solarrun_save'));
+  if(d&&d.S){S=d.S;if(!S.paid)S.paid={};if(!S.lots)S.lots={};if(!S.heat)S.heat=1;if(!S.estate0)S.estate0=1960;if(!S.epoch)S.epoch=Date.now();setEpoch(S.epoch);if(!S.rumors)S.rumors=S.rumor?[S.rumor]:[];if(!S.platesSold)S.platesSold={};if(S.ship==='argo')S.ship='icarus';if(!S.tauDeficit)S.tauDeficit=0;LOGBUF=d.log||[];showPort();}
+}catch(e){}}
+function newGame(){
+  S=newState();setEpoch(S.epoch);S.estate0=netWorth();LOGBUF=[];
+  log('Undocked from Earth orbital ring with 200 cr and an empty hold. The planets are moving — so should you.');
+  showPort();
+}
+/* ================= THREE.JS SCENE ================= */
+let THREE_OK=false,renderer=null,scene=null,camera=null,bodyMesh=[],labelSprites=[],trajLine=null,shipMesh=null,selRing=null;
+let cam={yaw:0.8,pitch:0.55,dist:34},dragM=null,curCanvasBox=null;
+let CAMFOCUS=null,PREV_DIST=34; /* transit follows the ship's POV */
+function SC(p){ /* compress heliocentric metres into display space */
+  const r=Math.hypot(p.x,p.y,p.z)/AUm;
+  if(r<1e-9)return new THREE.Vector3(0,0,0);
+  const s=Math.pow(r,0.42)*10/r;
+  return new THREE.Vector3(p.x/AUm*s,p.z/AUm*s,-p.y/AUm*s); /* ecliptic z -> screen up */
+}
+function moonDisplay(bi,day){ /* moons get an exaggerated display offset from their parent */
+  const b=BODIES[bi],pp=posOf(b.moon.of,day),mp=posOf(bi,day);
+  const base=SC(pp);
+  const dx=mp.x-pp.x,dy=mp.y-pp.y,L=Math.hypot(dx,dy)||1;
+  const off=(bi===3?0.62:0.95);
+  return new THREE.Vector3(base.x+dx/L*off,base.y+0.02,base.z-dy/L*off);
+}
+function dispPos(bi,day){return BODIES[bi].moon?moonDisplay(bi,day):SC(posOf(bi,day));}
+function rClose(bi){ /* the body's REAL radius in display units (floored for visibility) */
+  const p=posOf(bi,S?S.day:0),r=Math.hypot(p.x,p.y,p.z)/AUm||1;
+  const scl=Math.pow(r,0.42)*10/r/AUm;
+  return Math.max(BODIES[bi].R*scl,0.012);
+}
+const MOONPAIRS=[[2,3],[6,7],[8,9]]; /* Earth/Luna, Jupiter/Ganymede, Saturn/Titan */
+function pairScale(rP,rM,iP,iM){ /* lock a moon's scaling to its parent: shared factor, the more-shrunken member governs */
+  const fP=BODIES[iP].dispR,fM=BODIES[iM].dispR;
+  const k=Math.min(rP/fP,rM/fM);
+  return [Math.max(rClose(iP),fP*k),Math.max(rClose(iM),fM*k)];
+}
+function shrinkCurve(i,dist){ /* displayed radius as a function of viewer distance */
+  const full=BODIES[i].dispR;
+  let t=Math.min(1,Math.max(0,(dist-2.5*full)/(9*full)));
+  t=t*t*(3-2*t);
+  const rc=rClose(i);
+  return rc+(full-rc)*t;
+}
+/* Display-space flight path: a straight chord between the DISPLAYED bodies, with
+   smoothstep lateral offsets so the ship departs from the origin's sphere surface
+   (peeling away tangentially) and lands TANGENT on the destination's limb — the
+   smoothstep's zero end-slope makes the arrival velocity exactly perpendicular to
+   the radius, i.e. a proper tangent kiss. Overshoots (f>1) sail past the limb. */
+function pathNormal(A,B){
+  const d=new THREE.Vector3().subVectors(B,A);
+  let n=new THREE.Vector3().crossVectors(d,new THREE.Vector3(0,1,0));
+  if(n.lengthSq()<1e-12)n.set(1,0,0);
+  return n.normalize();
+}
+function pathPoint(A,B,n,rA,rB,f,RP){
+  const L=A.distanceTo(B)||1e-6;
+  const za=Math.max(0.02,Math.min(0.35,3*rA/L)),zb=Math.max(0.03,Math.min(0.35,4*rB/L));
+  function sm(x){x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);}
+  const off=Math.max(rA*(1-sm(f/za)),rB*sm((f-(1-zb))/zb));
+  let base;
+  if(RP){ /* the REAL chord's image under the compressed map (a straight display line
+             cuts far closer to the Sun than the true path does), blended at the
+             endpoints onto the displayed bodies */
+    base=SC({x:RP.P0.x+(RP.P1.x-RP.P0.x)*f,y:RP.P0.y+(RP.P1.y-RP.P0.y)*f,z:RP.P0.z+(RP.P1.z-RP.P0.z)*f});
+    base.add(A.clone().sub(SC(RP.P0)).multiplyScalar(1-f));
+    base.add(B.clone().sub(SC(RP.P1)).multiplyScalar(f));
+  }else{
+    base=new THREE.Vector3(A.x+(B.x-A.x)*f,A.y+(B.y-A.y)*f,A.z+(B.z-A.z)*f);
+  }
+  return base.add(new THREE.Vector3(n.x*off,n.y*off,n.z*off));
+}
+function buildPathPts(A,B,rA,rB,RP){
+  const n=pathNormal(A,B),pts=[];
+  for(let k=0;k<=120;k++)pts.push(pathPoint(A,B,n,rA,rB,k/120,RP));
+  return pts;
+}
+/* very coarse continent outlines, (lon,lat) degrees — recognizable at game zoom */
+const LAND=[
+ [[-168,66],[-155,71],[-130,70],[-110,73],[-95,72],[-85,70],[-75,62],[-60,60],[-55,52],[-65,45],[-70,42],[-75,36],[-81,31],[-81,26],[-84,30],[-90,29],[-97,26],[-97,20],[-92,16],[-83,9],[-79,9],[-85,12],[-90,14],[-95,17],[-105,20],[-110,24],[-117,33],[-125,40],[-125,49],[-135,58],[-152,60],[-165,60]],
+ [[-79,9],[-72,12],[-60,9],[-50,0],[-35,-8],[-39,-15],[-48,-26],[-53,-34],[-58,-39],[-65,-41],[-71,-46],[-69,-52],[-75,-52],[-73,-45],[-71,-33],[-70,-18],[-76,-14],[-81,-6],[-80,1]],
+ [[-6,35],[10,37],[20,32],[32,31],[35,28],[43,12],[51,11],[40,-2],[40,-16],[35,-24],[31,-30],[20,-35],[18,-33],[12,-18],[9,-1],[9,5],[-8,4],[-17,15],[-17,21],[-10,30]],
+ [[-10,36],[-8,44],[-1,49],[-4,58],[5,58],[5,62],[15,68],[25,71],[40,68],[60,69],[75,73],[95,76],[110,77],[130,72],[140,72],[160,70],[179,66],[170,60],[162,58],[155,50],[140,54],[135,44],[130,42],[127,34],[122,30],[122,25],[108,20],[105,10],[103,2],[98,8],[95,16],[88,22],[80,15],[77,8],[72,20],[67,24],[60,25],[57,27],[56,26],[58,22],[54,17],[43,12],[39,21],[35,28],[36,36],[30,36],[27,38],[23,38],[22,40],[15,40],[12,44],[3,43],[-1,37]],
+ [[114,-22],[122,-18],[131,-12],[137,-12],[142,-11],[146,-15],[149,-20],[153,-27],[150,-37],[140,-38],[131,-32],[124,-33],[115,-34],[113,-26]],
+ [[-58,76],[-38,84],[-20,82],[-22,70],[-42,60],[-52,64]],
+ [[-5,50],[-6,56],[-3,59],[0,53],[1,51]],
+ [[44,-12],[50,-16],[47,-25],[44,-20]],
+ [[130,31],[140,35],[141,40],[145,44],[141,42],[135,34]],
+ [[95,5],[105,-5],[115,-8],[120,-9],[110,-2],[100,2]],
+ [[167,-45],[174,-37],[178,-38],[172,-44]]
+];
+function earthTexture(){
+  const W=1024,H=512,cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const cx=cv.getContext('2d');
+  const oc=cx.createLinearGradient(0,0,0,H);
+  oc.addColorStop(0,'#1b3a6b');oc.addColorStop(0.5,'#1d4f8a');oc.addColorStop(1,'#1b3a6b');
+  cx.fillStyle=oc;cx.fillRect(0,0,W,H);
+  function X(lon){return (lon+180)/360*W;}
+  function Y(lat){return (90-lat)/180*H;}
+  cx.fillStyle='#3d7a3a';cx.strokeStyle='#2e5c2c';cx.lineWidth=1.5;
+  for(const poly of LAND){
+    cx.beginPath();
+    poly.forEach(function(pt,i){const x=X(pt[0]),y=Y(pt[1]);if(i===0)cx.moveTo(x,y);else cx.lineTo(x,y);});
+    cx.closePath();cx.fill();cx.stroke();
+  }
+  /* deserts, a rough sahara + arabia + outback tint */
+  cx.fillStyle='rgba(196,168,90,0.55)';
+  cx.beginPath();cx.ellipse(X(10),Y(21),X(30)-X(0),12,0,0,7);cx.fill();
+  cx.beginPath();cx.ellipse(X(48),Y(22),20,10,0,0,7);cx.fill();
+  cx.beginPath();cx.ellipse(X(133),Y(-25),26,12,0,0,7);cx.fill();
+  /* ice caps */
+  cx.fillStyle='#e8f0f4';
+  cx.fillRect(0,0,W,Y(78));
+  cx.fillRect(0,Y(-68),W,H-Y(-68));
+  /* a little cloud speckle */
+  cx.fillStyle='rgba(255,255,255,0.18)';
+  for(let i=0;i<260;i++){
+    const x=Math.random()*W,y=H*0.12+Math.random()*H*0.76;
+    cx.beginPath();cx.ellipse(x,y,6+Math.random()*22,2+Math.random()*4,0,0,7);cx.fill();
+  }
+  const tex=new THREE.CanvasTexture(cv);
+  return tex;
+}
+function makeLabel(text,color){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
+  const cx=cv.getContext('2d');
+  cx.font='28px monospace';cx.fillStyle=color||'#efe0c8';
+  cx.shadowColor='#000';cx.shadowBlur=6;
+  cx.fillText(text,8,40);
+  const tex=new THREE.CanvasTexture(cv);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  sp.scale.set(3.2,0.8,1);
+  return sp;
+}
+function initThree(){
+  if(typeof THREE==='undefined'){THREE_OK=false;
+    $('mapbox').innerHTML='<div style="padding:40px;color:var(--red)">Three.js failed to load from the CDN — the 3D map needs a network connection on first load.</div>';
+    return;}
+  THREE_OK=true;
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(window.devicePixelRatio||1);
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(50,16/9,0.05,4000);
+  const sg=new THREE.BufferGeometry(),sv=[];
+  for(let i=0;i<1200;i++){const r=900,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);
+    sv.push(r*Math.sin(ph)*Math.cos(th),r*Math.cos(ph),r*Math.sin(ph)*Math.sin(th));}
+  sg.setAttribute('position',new THREE.Float32BufferAttribute(sv,3));
+  scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x8899bb,size:1.6,sizeAttenuation:false})));
+  const sun=new THREE.Mesh(new THREE.SphereGeometry(0.7,24,24),new THREE.MeshBasicMaterial({color:0xffdd88}));
+  scene.add(sun);
+  scene.add(new THREE.PointLight(0xfff2d0,1.6,0,2));
+  scene.add(new THREE.AmbientLight(0x604830,1.1));
+  for(let i=0;i<BODIES.length;i++){
+    const b=BODIES[i];
+    if(!b.moon&&!b.voyager){
+      const pts=[];
+      const per=360/(b.rate[3]/100)*365.25; /* days per orbit */
+      for(let k=0;k<=256;k++)pts.push(SC(posOf(i,k/256*per)));
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({color:0x3a3020,transparent:true,opacity:0.7})));
+    }
+    const mat=(i===2)
+      ?new THREE.MeshLambertMaterial({map:earthTexture(),emissive:0x223a5a,emissiveIntensity:0.35})
+      :new THREE.MeshLambertMaterial({color:b.col,emissive:b.col,emissiveIntensity:0.25});
+    const m=b.voyager?makeVoyagerStation():new THREE.Mesh(new THREE.SphereGeometry(b.dispR,i===2?36:20,i===2?24:20),mat);
+    m.userData.bi=i;
+    scene.add(m);bodyMesh[i]=m;
+    if(b.n==='Saturn'){
+      const ring=new THREE.Mesh(new THREE.RingGeometry(b.dispR*1.3,b.dispR*2.1,48),
+        new THREE.MeshBasicMaterial({color:0xcbb684,side:THREE.DoubleSide,transparent:true,opacity:0.55}));
+      ring.rotation.x=Math.PI/2.25;m.add(ring);
+    }
+    const lab=makeLabel(b.n,b.port?'#ffd9a0':'#8a7a5a');
+    scene.add(lab);labelSprites[i]=lab;
+  }
+  selRing=new THREE.Mesh(new THREE.RingGeometry(0.5,0.58,40),
+    new THREE.MeshBasicMaterial({color:0x5ee1ff,side:THREE.DoubleSide,transparent:true,opacity:0.9}));
+  selRing.visible=false;scene.add(selRing);
+  torchMesh=makeShip();torchMesh.visible=false;scene.add(torchMesh);
+  apolloMesh=makeApollo();apolloMesh.visible=false;scene.add(apolloMesh);
+  shipMesh=torchMesh;
+  requestAnimationFrame(frame);
+}
+let PLUME=null,torchMesh=null,apolloMesh=null;
+function makeApollo(){ /* the real silhouette: CM cone, SM can, SPS bell — built along +Y */
+  const g=new THREE.Group();
+  const silver=new THREE.MeshLambertMaterial({color:0xd8dade,emissive:0x444448,emissiveIntensity:0.3});
+  const steel=new THREE.MeshLambertMaterial({color:0x9aa0aa});
+  const dark=new THREE.MeshLambertMaterial({color:0x555a62});
+  const sm=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.026,14),steel);
+  g.add(sm);
+  const cm=new THREE.Mesh(new THREE.ConeGeometry(0.010,0.013,14),silver);
+  cm.position.y=0.0195;g.add(cm);
+  const probe=new THREE.Mesh(new THREE.CylinderGeometry(0.0018,0.0018,0.006,8),dark);
+  probe.position.y=0.029;g.add(probe);
+  const bell=new THREE.Mesh(new THREE.ConeGeometry(0.0075,0.011,12),dark);
+  bell.rotation.x=Math.PI;bell.position.y=-0.0185;g.add(bell);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.0102,0.0102,0.002,14),dark);
+  band.position.y=0.0125;g.add(band);
+  return g;
+}
+function makeVoyagerStation(){ /* the probe itself, and the museum grown around it */
+  const g=new THREE.Group();
+  const white=new THREE.MeshLambertMaterial({color:0xe8e8ea,emissive:0x333336,emissiveIntensity:0.4});
+  const grey=new THREE.MeshLambertMaterial({color:0x8a8f98});
+  const gold=new THREE.MeshLambertMaterial({color:0xd4af37,emissive:0xd4af37,emissiveIntensity:0.5});
+  const dish=new THREE.Mesh(new THREE.ConeGeometry(0.030,0.009,24),white);
+  dish.rotation.z=Math.PI/2;g.add(dish); /* the high-gain dish, forever pointed home */
+  const bus=new THREE.Mesh(new THREE.BoxGeometry(0.013,0.011,0.013),grey);
+  bus.position.x=-0.008;g.add(bus);
+  const rtg=new THREE.Mesh(new THREE.CylinderGeometry(0.0015,0.0015,0.028,6),grey);
+  rtg.rotation.z=Math.PI/2;rtg.position.set(-0.022,-0.006,0.006);g.add(rtg);
+  const mag=new THREE.Mesh(new THREE.CylinderGeometry(0.0008,0.0008,0.05,6),grey);
+  mag.rotation.z=Math.PI/2;mag.position.set(-0.035,0.005,-0.004);g.add(mag);
+  const record=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.0012,16),gold);
+  record.rotation.x=Math.PI/2;record.position.set(-0.008,0.002,0.0072);g.add(record); /* the golden record */
+  for(const rz of[0,Math.PI/2]){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.055,0.0022,8,40),
+      new THREE.MeshLambertMaterial({color:0xc8b06a,emissive:0x40381e,emissiveIntensity:0.6}));
+    ring.rotation.x=rz;g.add(ring);
+  }
+  const shell=new THREE.Mesh(new THREE.SphereGeometry(0.064,20,14),
+    new THREE.MeshBasicMaterial({color:0xd8c890,transparent:true,opacity:0.07}));
+  g.add(shell);
+  return g;
+}
+function makeShip(){ /* a tiny detailed torch ship, built along +Y (nose forward) */
+  const g=new THREE.Group();
+  const hullMat=new THREE.MeshLambertMaterial({color:0xcfd6e0});
+  const darkMat=new THREE.MeshLambertMaterial({color:0x7a8290});
+  const radMat=new THREE.MeshBasicMaterial({color:0xa03030,side:THREE.DoubleSide});
+  /* spine */
+  const spine=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.06,10),hullMat);
+  g.add(spine);
+  /* command module: sphere at the nose */
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(0.011,12,10),hullMat);
+  nose.position.y=0.036;g.add(nose);
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(0.007,0.014,10),darkMat);
+  cone.position.y=0.052;g.add(cone);
+  /* cargo containers clamped to the spine */
+  for(let k=0;k<3;k++){
+    const box=new THREE.Mesh(new THREE.BoxGeometry(0.013,0.011,0.013),darkMat);
+    box.position.set((k%2?0.009:-0.009),0.012-k*0.014,0);
+    g.add(box);
+  }
+  /* radiator fins, glowing faintly */
+  for(const sx of[-1,1]){
+    const fin=new THREE.Mesh(new THREE.PlaneGeometry(0.03,0.012),radMat);
+    fin.position.set(sx*0.021,-0.008,0);g.add(fin);
+  }
+  /* engine bell */
+  const bell=new THREE.Mesh(new THREE.ConeGeometry(0.009,0.012,10),darkMat);
+  bell.rotation.x=Math.PI;bell.position.y=-0.036;g.add(bell);
+  /* the torch itself */
+  PLUME=new THREE.Mesh(new THREE.ConeGeometry(0.006,0.06,8),
+    new THREE.MeshBasicMaterial({color:0x9fe0ff,transparent:true,opacity:0.75,blending:THREE.AdditiveBlending,depthWrite:false}));
+  PLUME.rotation.x=Math.PI;PLUME.position.y=-0.072;g.add(PLUME);
+  return g;
+}
+function attachCanvas(boxId){
+  if(!THREE_OK)return;
+  const box=$(boxId);
+  if(renderer.domElement.parentNode!==box)box.insertBefore(renderer.domElement,box.firstChild);
+  curCanvasBox=box;
+  const r=box.getBoundingClientRect();
+  renderer.setSize(r.width,r.height);
+  camera.aspect=r.width/r.height;camera.updateProjectionMatrix();
+}
+function updateScene(day){
+  if(!THREE_OK)return;
+  const rArr=[];
+  for(let i=0;i<BODIES.length;i++){
+    const p=dispPos(i,day);
+    bodyMesh[i].position.copy(p);
+    /* cartoon-sized from afar; shrink to TRUE scale as the camera closes in.
+       In transit, a body's APPARENT size is capped at what it will subtend at
+       this leg's closest pass — cartoon ceiling, true-scale floor, constant
+       apparent size between: monotone, so nothing ever deflates on approach. */
+    const full=BODIES[i].dispR;
+    const dcam=camera.position.distanceTo(p);
+    let rNow=shrinkCurve(i,dcam);
+    if(T&&T.passMin&&T.passMin[i]!=null){
+      const dm=T.passMin[i];
+      rNow=Math.max(rClose(i),Math.min(full,shrinkCurve(i,dm)*(dcam/dm)));
+    }
+    rArr[i]=rNow;
+  }
+  /* a moon and its parent shrink TOGETHER — no moon ever out-bulks its primary */
+  for(const pr of MOONPAIRS){
+    const fixed=pairScale(rArr[pr[0]],rArr[pr[1]],pr[0],pr[1]);
+    rArr[pr[0]]=fixed[0];rArr[pr[1]]=fixed[1];
+  }
+  for(let i=0;i<BODIES.length;i++){
+    bodyMesh[i].scale.setScalar(rArr[i]/BODIES[i].dispR);
+    bodyMesh[i].userData.curR=rArr[i];
+    labelSprites[i].position.set(bodyMesh[i].position.x,bodyMesh[i].position.y+rArr[i]+0.35,bodyMesh[i].position.z);
+  }
+  bodyMesh[2].rotation.y=earthSpin(day); /* GMST-true: Greenwich faces where it really faces */
+  const F=CAMFOCUS||{x:0,y:0,z:0};
+  camera.position.set(F.x+cam.dist*Math.cos(cam.pitch)*Math.cos(cam.yaw),
+                      F.y+cam.dist*Math.sin(cam.pitch),
+                      F.z+cam.dist*Math.cos(cam.pitch)*Math.sin(cam.yaw));
+  camera.lookAt(F.x,F.y,F.z);
+}
+/* ================= SET OUT ================= */
+let SEL=null;
+function showSetout(){
+  $('setout-from').textContent=BODIES[S.loc].n;
+  $('setout-date').textContent=dateStr(S.day);
+  $('statusbar2').innerHTML=statusHTML();
+  SEL=null;$('traj-panel').style.display='none';
+  CAMFOCUS=THREE_OK?dispPos(S.loc,S.day):null; /* the map opens centered on where you are */
+  if(selRing)selRing.visible=false;
+  if(trajLine){scene.remove(trajLine);trajLine=null;}
+  renderDestBtns();
+  show('scr-setout');
+}
+function apolloLeg(a,b){return (a===2&&b===3)||(a===3&&b===2);}
+const APOLLO_DAYS=3.05;
+function renderDestBtns(){
+  const m=shipMass(),thr=ship().thr,isApollo=ship().special==='apollo';
+  $('destbtns').innerHTML=PORTS.filter(function(j){return j!==S.loc;}).map(function(j){
+    const vis=S.visited.indexOf(j)>=0;
+    if(isApollo){
+      if(apolloLeg(S.loc,j))
+        return '<button onclick="selectDest('+j+')"'+(SEL===j?' style="border-color:var(--cyan)"':'')+'><span class="tn">'+esc(BODIES[j].n)+(vis?' ✓':'')+'</span><br>'+
+          '<span class="tt">translunar transfer · '+APOLLO_DAYS+' d · the old way</span></button>';
+      const alm=almanac(S.loc,j,S.day,ship().dv);
+      if(alm)return '<button onclick="selectDest('+j+')"'+(SEL===j?' style="border-color:var(--cyan)"':'')+'><span class="tn">'+esc(BODIES[j].n)+(vis?' ✓':'')+'</span><br>'+
+        '<span class="tt">'+(alm.seq.length?'via '+alm.seq.map(function(f){return BODIES[f].n;}).join('–')+' · ':'direct Hohmann · ')+fmtT(alm.time)+'</span></button>';
+      return '<button disabled><span class="tn dim">'+esc(BODIES[j].n)+'</span><br>'+
+        '<span class="tt">no trajectory within 3 flybys — even the almanac gives up</span></button>';
+    }
+    const itc=intercept(S.loc,j,S.day,m,thr,shipExcl());
+    return '<button onclick="selectDest('+j+')"'+(SEL===j?' style="border-color:var(--cyan)"':'')+'><span class="tn">'+esc(BODIES[j].n)+(vis?' ✓':'')+'</span><br>'+
+      '<span class="tt">'+fmtDist(itc.d)+' · '+fmtT(itc.t)+' · peak '+fmt(itc.peak/1000)+' km/s</span></button>';
+  }).join('');
+}
+function selectDest(j){
+  SEL=j;
+  const m=shipMass(),thr=ship().thr,a=aEff(m,thr);
+  if(ship().special==='apollo'&&!apolloLeg(S.loc,j)){
+    const alm=almanac(S.loc,j,S.day,ship().dv);
+    if(!alm){SEL=null;return;}
+    const itcA=intercept(S.loc,j,S.day,m,thr,0);
+    $('traj-panel').style.display='';
+    $('traj-info').innerHTML='<span class="gold">'+esc(BODIES[S.loc].n)+' &rarr; '+esc(BODIES[j].n)+'</span> · <b>THE SLINGSHOT ALMANAC</b>: '+
+      (alm.seq.length?'gravity-assist chain via <span class="cyan">'+alm.seq.map(function(f){return esc(BODIES[f].n);}).join(' &rarr; ')+'</span>':'direct Hohmann transfer')+
+      ' · burns <span class="gold">'+fmt(alm.burn)+' of 2,800 m/s</span> · <b>'+fmtT(alm.time)+'</b> of coasting, phasing and resonant pumping.'+
+      '<br><span class="dim" style="font-size:.85em">Harbor mass-drivers sling you to escape; '+(AERO[j]?'aerocapture is free where there is air':(BODIES[j].moon?'the giant brakes you into its own moon':'propulsive capture at an airless world, paid in full'))+'. Pack no fruit. Write letters.</span>';
+    if(THREE_OK){
+      if(trajLine){scene.remove(trajLine);trajLine=null;}
+      const A=dispPos(S.loc,S.day),B=dispPos(j,S.day+alm.time/DAY);
+      trajLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(buildPathPts(A,B,rClose(S.loc),rClose(j),{P0:itcA.P0,P1:posOf(j,S.day+alm.time/DAY)})),
+        new THREE.LineDashedMaterial({color:0xd8a878,dashSize:0.3,gapSize:0.5}));
+      trajLine.computeLineDistances();
+      scene.add(trajLine);
+      selRing.visible=true;
+    }
+    renderDestBtns();
+    return;
+  }
+  if(ship().special==='apollo'){
+    const itcA=intercept(S.loc,j,S.day,m,thr,0);
+    $('traj-panel').style.display='';
+    $('traj-info').innerHTML='<span class="gold">'+esc(BODIES[S.loc].n)+' &rarr; '+esc(BODIES[j].n)+'</span> · translunar injection, coast, correction burns, retrograde capture: <b>'+APOLLO_DAYS+' days</b>, as flown in 1968-72. No torch, no tangent kiss, no dignity at the insertion — but the checklists still smell faintly of Tang.';
+    if(THREE_OK){
+      if(trajLine){scene.remove(trajLine);trajLine=null;}
+      const A=dispPos(S.loc,S.day),B=dispPos(j,S.day+APOLLO_DAYS);
+      trajLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(buildPathPts(A,B,rClose(S.loc),rClose(j),{P0:itcA.P0,P1:itcA.P1})),
+        new THREE.LineDashedMaterial({color:0x5ee1ff,dashSize:0.5,gapSize:0.3}));
+      trajLine.computeLineDistances();
+      scene.add(trajLine);
+      selRing.visible=true;
+    }
+    renderDestBtns();
+    return;
+  }
+  const itc=intercept(S.loc,j,S.day,m,thr,shipExcl());
+  const del=insertionDelicate(j,m,thr);
+  const b=BODIES[j];
+  $('traj-panel').style.display='';
+  $('traj-info').innerHTML='<span class="gold">'+esc(BODIES[S.loc].n)+' &rarr; '+esc(b.n)+'</span> · intercept solved for a moving target: '+
+    fmtDist(itc.d)+' chord, <b>'+fmtT(itc.t)+'</b> at mass '+fmt(m)+
+    ' (burn '+(a/9.80665).toFixed(1)+' g, peak '+fmt(itc.peak/1000)+' km/s = '+fmtSpeed(itc.peak)+(itc.peak>0.01*CEE?' = '+(itc.peak/CEE).toFixed(3)+'c':'')+').'+
+    (itc.detour?'<br><span class="red">Route dodges the solar exclusion zone (+'+((itc.ratio-1)*100).toFixed(0)+'% distance)'+(ship().special==='icarus'?'':' \u2014 an Icarus Class could cut straight across')+'.</span>':'')+
+    (ship().special==='icarus'&&!itc.detour&&segPerihelion(itc.P0,itc.P1)<SOL_EXCL?'<br><span class="gold">Cutting inside the corona line \u2014 Icarus privilege.</span>':'')+
+    '<br>Arrival: '+(del
+      ?'<span class="grn">delicate tangent insertion</span> — kiss the atmosphere top at '+(vOrb(j)/1000).toFixed(2)+' km/s, circular, no fees.'
+      :'<span class="red">too heavy for a tangent kiss</span> — v<sub>orb</sub> '+(vOrb(j)/1000).toFixed(2)+' km/s needs more braking authority than '+(a/9.80665).toFixed(1)+' g can shape; expect a graceless capture (+15 min, tug fee).');
+  if(THREE_OK){
+    if(trajLine){scene.remove(trajLine);trajLine=null;}
+    const A=dispPos(S.loc,S.day),B=dispPos(j,S.day+itc.t/DAY);
+    trajLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(buildPathPts(A,B,rClose(S.loc),rClose(j),{P0:itc.P0,P1:itc.P1})),
+      new THREE.LineDashedMaterial({color:0x5ee1ff,dashSize:0.5,gapSize:0.3}));
+    trajLine.computeLineDistances();
+    scene.add(trajLine);
+    selRing.visible=true;
+  }
+  renderDestBtns();
+}
+function departSelected(){if(SEL!=null)depart(SEL);}
+/* ================= TRANSIT ================= */
+let T=null;
+function totalTrip(){return T.climb+T.plan.total+T.insert;}
+function depart(dest){
+  const m=shipMass(),thr=ship().thr;
+  let a=aEff(m,thr);
+  let itc=intercept(S.loc,dest,S.day,m,thr,shipExcl());
+  let almTitle='';
+  if(ship().special==='apollo'){
+    itc=intercept(S.loc,dest,S.day,m,thr,0);
+    let tA;
+    if(apolloLeg(S.loc,dest))tA=APOLLO_DAYS*DAY;
+    else{
+      const alm=almanac(S.loc,dest,S.day,ship().dv);
+      if(!alm)return;
+      tA=alm.time;
+      almTitle=alm.seq.length?' via '+alm.seq.map(function(f){return BODIES[f].n;}).join('\u2013')+' assists':' by direct Hohmann';
+      /* re-solve the arrival point for the long coast */
+      itc.P1=posOf(dest,S.day+tA/DAY);
+      itc.d=Math.hypot(itc.P1.x-itc.P0.x,itc.P1.y-itc.P0.y,itc.P1.z-itc.P0.z);
+    }
+    a=4*itc.d/(tA*tA); /* the stately pace of chemical rockets */
+    itc.t=tA;itc.peak=2*itc.d/tA;
+  }
+  const plan=makePlan(itc.d,a);
+  const noWells=ship().special==='apollo'; /* TLI and capture burns live inside the 3.05 days */
+  T={from:S.loc,to:dest,d:itc.d,P0:itc.P0,P1:itc.P1,m:m,curA:a,plan:plan,
+     climb:noWells?0:KWELL*vOrb(S.loc)/a,insert:noWells?0:KWELL*vOrb(dest)/a,
+     prog:0,t0:performance.now(),dur:ship().special==='apollo'?5000+(itc.t/DAY)*8:5000+(itc.t/DAY)*2000, /* the almanac fast-forwards; nobody watches six years of coasting */
+     events:planEvents(itc.t/DAY),paused:false,depDay:S.day,kill:null,bankedDeficit:0};
+  /* detoured routes bow the drawn path away from the Sun */
+  T.bow=0;
+  if(itc.detour&&THREE_OK){
+    const h=segPerihelion(itc.P0,itc.P1);
+    const dx=itc.P1.x-itc.P0.x,dy=itc.P1.y-itc.P0.y,dz=itc.P1.z-itc.P0.z;
+    const L2=dx*dx+dy*dy+dz*dz||1;
+    let tt=-(itc.P0.x*dx+itc.P0.y*dy+itc.P0.z*dz)/L2;tt=Math.max(0,Math.min(1,tt));
+    const peri={x:itc.P0.x+dx*tt,y:itc.P0.y+dy*tt,z:itc.P0.z+dz*tt};
+    const hm=Math.hypot(peri.x,peri.y,peri.z)||1;
+    const pushed={x:peri.x/hm*SOL_EXCL*1.15,y:peri.y/hm*SOL_EXCL*1.15,z:peri.z/hm*SOL_EXCL*1.15};
+    const a1=SC(pushed),a0=SC(peri);
+    T.bowDir=a1.clone().sub(a0);T.bow=T.bowDir.length();
+    if(T.bow>1e-6)T.bowDir.multiplyScalar(1/T.bow);
+  }
+  $('transit-title').innerHTML='IN TRANSIT: '+esc(BODIES[S.loc].n)+' &rarr; '+esc(BODIES[dest].n)+esc(almTitle)+
+    ' <span class="dim" style="font-size:.8em">'+fmtT(itc.t)+' plotted · ship mass '+fmt(m)+'</span>';
+  if(THREE_OK){
+    T.n=pathNormal(dispPos(S.loc,S.day),dispPos(dest,S.day+itc.t/DAY));
+    rebuildTransitLine();
+    shipMesh.visible=false;
+    shipMesh=(ship().special==='apollo'?apolloMesh:torchMesh);
+    shipMesh.visible=true;selRing.visible=false;
+    CAMFOCUS=pathPoint(dispPos(S.loc,S.day),dispPos(dest,S.day+itc.t/DAY),T.n,BODIES[S.loc].dispR,BODIES[dest].dispR,0);
+    PREV_DIST=cam.dist;cam.dist=0.55; /* ride close alongside the little ship */
+  }
+  show('scr-transit');
+}
+function displayPathPos(s){ /* display-space ship position at path distance s */
+  const ab=transitAB();
+  if(T.kill&&T.kill.len>0&&s<T.kill.len){
+    const t=Math.max(0,s/T.kill.len);
+    const A=SC(T.kill.A),Cc=SC(T.kill.ctrl),B=SC(T.kill.B);
+    const q1=A.clone().lerp(Cc,t),q2=Cc.clone().lerp(B,t);
+    return q1.lerp(q2,t);
+  }
+  const off=T.kill?T.kill.len:0,dch=T.d-off;
+  const f=dch>0?(s-off)/dch:1;
+  const p=pathPoint(ab.A,ab.B,T.n,ab.rA,ab.rB,f,{P0:T.P0,P1:T.P1});
+  if(T.bow&&f>0&&f<1)p.addScaledVector(T.bowDir,T.bow*Math.sin(Math.PI*Math.min(1,f)));
+  return p;
+}
+function computePassMin(){ /* closest display-space approach of the leg to every body */
+  if(!THREE_OK||!T)return;
+  T.passMin=[];
+  const total=totalTrip();
+  for(let i=0;i<BODIES.length;i++){
+    let mn=1e9;
+    for(let k=0;k<=24;k++){
+      const pp=displayPathPos(k/24*T.d);
+      const bp=dispPos(i,T.depDay+(k/24)*total/DAY);
+      mn=Math.min(mn,pp.distanceTo(bp));
+    }
+    /* the OBSERVER is the follow-camera, which never gets closer than its ride
+       distance — without this floor the destination's own closest pass is its limb,
+       the cap never binds, and the planet deflates in your face at arrival */
+    T.passMin[i]=Math.max(mn,0.55);
+  }
+}
+function transitAB(){
+  return {A:T.rerouteFrom?SC(T.rerouteFrom):dispPos(T.from,T.depDay),
+          B:dispPos(T.to,T.depDay+totalTrip()/DAY),
+          rA:T.rerouteFrom?0.002:rClose(T.from),rB:rClose(T.to)};
+}
+function rebuildTransitLine(){
+  if(!THREE_OK||!T)return;
+  if(trajLine){scene.remove(trajLine);trajLine=null;}
+  const pts=[];
+  for(let k=0;k<=140;k++)pts.push(displayPathPos(k/140*T.d));
+  trajLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color:0x3a8ab0,transparent:true,opacity:0.8}));
+  scene.add(trajLine);
+  computePassMin();
+}
+function transitTick(){
+  if(!T||T.paused)return;
+  const frac=Math.min(1,(performance.now()-T.t0)/T.dur);
+  T.prog=frac;
+  if(T.events.length&&frac>=T.events[0].at){
+    const e=T.events.shift();T.paused=true;fireEvent(e.kind);return;
+  }
+  if(frac>=1){arrive();return;}
+}
+function skipTransit(){
+  if(!T||T.paused)return;
+  const target=T.events.length?T.events[0].at:1;
+  T.t0=performance.now()-target*T.dur;
+}
+function resumeTransit(){if(!T)return;T.paused=false;T.t0=performance.now()-T.prog*T.dur;}
+function retune(f){
+  const total0=totalTrip(),tnow=T.prog*total0,rate=T.dur/Math.max(total0,1e-9);
+  T.curA*=f;
+  const tc=Math.max(0,Math.min(tnow-T.climb,T.plan.total));
+  const over=replan(T.plan,tc,T.curA);
+  T.climb=KWELL*vOrb(T.from)/T.curA;T.insert=KWELL*vOrb(T.to)/T.curA;
+  const total1=totalTrip();
+  T.dur=rate*total1;
+  T.prog=total1>0?Math.min(tnow,total1)/total1:1;
+  for(const e of T.events)e.at=e.at*total0/total1;
+  rebuildTransitLine(); /* the arrival point moved */
+  return over;
+}
+function massChanged(){const oldM=T.m,newM=shipMass();T.m=newM;return retune(oldM/newM);}
+/* ---- mid-flight reroute: full inertia compensation ----
+   Ship state is taken mid-plan; velocity is decomposed onto the NEW chord.
+   The parallel component feeds the bang-bang replan (a running start — or a
+   brake-first / overshoot if it points the wrong way); the perpendicular
+   component costs an honest lateral-kill burn of v_perp/a before the plan. */
+function shipStateNow(){
+  const total0=totalTrip(),tnow=T.prog*total0;
+  const tc=Math.max(0,Math.min(tnow-T.climb,T.plan.total));
+  const st=planState(T.plan,tc);
+  const L=Math.hypot(T.P1.x-T.P0.x,T.P1.y-T.P0.y,T.P1.z-T.P0.z)||1;
+  const u={x:(T.P1.x-T.P0.x)/L,y:(T.P1.y-T.P0.y)/L,z:(T.P1.z-T.P0.z)/L};
+  const dayNow=T.depDay+tnow/DAY;
+  const O=posOf(T.from,dayNow);
+  return {dayNow:dayNow,u:u,s:st.s,v:st.v,
+    pos:{x:O.x+u.x*st.s,y:O.y+u.y*st.s,z:O.z+u.z*st.s}};
+}
+function rerouteSolve(dest){
+  const SS=shipStateNow(),a=T.curA,speed=Math.abs(SS.v);
+  const vv={x:SS.u.x*SS.v,y:SS.u.y*SS.v,z:SS.u.z*SS.v};
+  let tau=3600,sol=null;
+  for(let i=0;i<14;i++){
+    /* target in the frame co-moving with the OLD origin, whose velocity we still carry */
+    const Pt=posOf(dest,SS.dayNow+tau/DAY),Po=posOf(T.from,SS.dayNow+tau/DAY);
+    const R={x:Pt.x-Po.x-SS.u.x*SS.s,y:Pt.y-Po.y-SS.u.y*SS.s,z:Pt.z-Po.z-SS.u.z*SS.s};
+    const d0=Math.hypot(R.x,R.y,R.z)||1;
+    const un={x:R.x/d0,y:R.y/d0,z:R.z/d0};
+    const w=vv.x*un.x+vv.y*un.y+vv.z*un.z;
+    const vperp=Math.sqrt(Math.max(0,speed*speed-w*w));
+    const tp=vperp/a;
+    /* while the lateral burn runs, the ship still COASTS: w*tp along the new chord
+       and vperp^2/2a sideways down its old heading — a great sweeping arc, not a stop */
+    let ph={x:vv.x-w*un.x,y:vv.y-w*un.y,z:vv.z-w*un.z};
+    const pm=Math.hypot(ph.x,ph.y,ph.z);
+    if(pm>1e-9){ph.x/=pm;ph.y/=pm;ph.z/=pm;}
+    const drift={x:w*tp*un.x+(vperp*vperp/(2*a))*ph.x,
+                 y:w*tp*un.y+(vperp*vperp/(2*a))*ph.y,
+                 z:w*tp*un.z+(vperp*vperp/(2*a))*ph.z};
+    const drLen=Math.hypot(drift.x,drift.y,drift.z);
+    /* the brachistochrone proper runs from the post-kill point */
+    const C={x:R.x-drift.x,y:R.y-drift.y,z:R.z-drift.z};
+    let d=Math.hypot(C.x,C.y,C.z)||1;
+    { /* solar exclusion applies to reroutes as well */
+      const pk={x:SS.pos.x+drift.x,y:SS.pos.y+drift.y,z:SS.pos.z+drift.z};
+      const dh=Math.hypot(Pt.x-pk.x,Pt.y-pk.y,Pt.z-pk.z)||1;
+      d*=detourLength(pk,Pt,shipExcl())/dh;
+    }
+    const un1={x:C.x/d,y:C.y/d,z:C.z/d};
+    const w1=w*(un.x*un1.x+un.y*un1.y+un.z*un1.z);
+    /* phase 0 bookkeeping: covers drLen of path in tp seconds, ENDING at velocity w1 */
+    const v0=tp>0?2*drLen/tp-w1:0,acc0=tp>0?(w1-v0)/tp:0;
+    const plan={d:drLen+d,a:a,total:tp,overshoot:0,maxOver:0,
+      ph:[{t0:0,t1:tp,s0:0,v0:tp>0?v0:w1,acc:tp>0?acc0:0}]};
+    replan(plan,tp,a);
+    const insert=KWELL*vOrb(dest)/a;
+    tau=plan.total+insert;
+    const vhat=speed>1e-9?{x:vv.x/speed,y:vv.y/speed,z:vv.z/speed}:un;
+    sol={t:tau,d:plan.d,plan:plan,insert:insert,w:w,w1:w1,vperp:vperp,tp:tp,drLen:drLen,
+         P1:Pt,pos:SS.pos,dayNow:SS.dayNow,
+         killB:{x:SS.pos.x+drift.x,y:SS.pos.y+drift.y,z:SS.pos.z+drift.z},
+         killCtrl:{x:SS.pos.x+vhat.x*drLen*0.55,y:SS.pos.y+vhat.y*drLen*0.55,z:SS.pos.z+vhat.z*drLen*0.55}};
+  }
+  return sol;
+}
+function applyReroute(dest,sol){
+  /* bank the ship-clock youth already earned on the abandoned leg */
+  const tcOld=Math.max(0,Math.min(T.prog*totalTrip()-T.climb,T.plan.total));
+  T.bankedDeficit=(T.bankedDeficit||0)+planDeficitUpTo(T.plan,tcOld);
+  T.to=dest;T.d=sol.d;T.P0={x:sol.pos.x,y:sol.pos.y,z:sol.pos.z};T.P1=sol.P1;
+  T.kill=sol.drLen>1?{A:{x:sol.pos.x,y:sol.pos.y,z:sol.pos.z},B:sol.killB,ctrl:sol.killCtrl,len:sol.drLen}:null;
+  T.rerouteFrom=sol.drLen>1?sol.killB:{x:sol.pos.x,y:sol.pos.y,z:sol.pos.z};
+  T.plan=sol.plan;T.climb=0;T.insert=sol.insert;
+  T.depDay=sol.dayNow;T.prog=0;T.t0=performance.now();
+  T.dur=5000+(sol.t/DAY)*2000;
+  T.events=planEvents(sol.t/DAY);
+  if(THREE_OK){
+    T.n=pathNormal(SC(T.rerouteFrom),dispPos(dest,sol.dayNow+sol.t/DAY));
+    rebuildTransitLine();
+  }
+  $('transit-title').innerHTML='REROUTED MID-BURN: &rarr; '+esc(BODIES[dest].n)+
+    ' <span class="dim" style="font-size:.8em">'+fmtT(sol.t)+' plotted · killed '+(sol.vperp/1000).toFixed(0)+' km/s of sideways inertia'+(sol.w<0?' · braking off '+Math.abs(sol.w/1000).toFixed(0)+' km/s of contrary velocity':' · keeping '+(sol.w/1000).toFixed(0)+' km/s of useful velocity')+'</span>';
+  log('Rerouted mid-burn for '+BODIES[dest].n+' — '+(sol.vperp>1?'killed '+(sol.vperp/1000).toFixed(0)+' km/s of lateral inertia, ':'')+(sol.w>=0?'kept':'fought')+' '+Math.abs(sol.w/1000).toFixed(0)+' km/s along the new chord.');
+}
+function drawTransit(){
+  if(!T)return;
+  const total=totalTrip(),tnow=T.prog*total;
+  const tc=Math.max(0,Math.min(tnow-T.climb,T.plan.total));
+  const st=planState(T.plan,tc),ph=planPhase(T.plan,tc);
+  const vkms=Math.abs(st.v)/1000;
+  const dayNow=T.depDay+tnow/DAY;
+  updateScene(dayNow);
+  if(THREE_OK&&shipMesh.visible){
+    const p=displayPathPos(st.s);
+    const p2=displayPathPos(st.s+Math.max(T.d*0.008,1)*(st.v>=0?1:-1));
+    shipMesh.position.copy(p);
+    CAMFOCUS=p;
+    if(PLUME&&shipMesh===torchMesh)PLUME.scale.set(1,0.65+Math.random()*0.7,1);
+    const dir=new THREE.Vector3().subVectors(p2,p);
+    if(dir.lengthSq()>1e-12){
+      const flip=ph.acc>0?1:-1;
+      dir.multiplyScalar(flip*(st.v>=0?1:-1)).normalize();
+      shipMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir);
+    }
+  }
+  $('transit-fill').style.width=Math.max(0,Math.min(100,st.s/T.d*100)).toFixed(1)+'%';
+  let phase;
+  if(tnow<T.climb)phase='WELL CLIMB — burning up out of '+BODIES[T.from].n+'’s gravity';
+  else if(tnow>T.climb+T.plan.total)phase='TANGENT INSERTION — shaping the kiss at '+(vOrb(T.to)/1000).toFixed(2)+' km/s';
+  else if(st.v<-1e-9)phase=ph.acc<0?'RETURN LEG — burning back toward the target':'RETURN LEG — braking for arrival';
+  else if(ph.acc===0)phase='LATERAL KILL — burning off the inertia of the old course';
+  else if(st.s>T.d+1e3)phase='OVERSHOOT — past the target, still shedding velocity!';
+  else phase=ph.acc>0?'ACCELERATING — constant burn':'DECELERATING — ship flipped, burning retrograde';
+  $('transit-phase').textContent=phase;
+  const defNow=(T.bankedDeficit||0)+planDeficitUpTo(T.plan,tc);
+  $('transit-stats').textContent=dateStr(dayNow)+' — '+fmtT(tnow)+' of '+fmtT(total)+' — velocity '+fmt(vkms)+' km/s ('+
+    fmtSpeed(vkms*1000)+(vkms>2997.9?', '+(vkms/299792.458).toFixed(3)+'c':'')+')'+
+    (defNow>1?' — ship clock −'+fmtT(defNow):'')+
+    (st.s>T.d+1e3?' — '+fmtLight(st.s-T.d)+' past the mark':'');
+}
+function arrive(){
+  const total=totalTrip();
+  const prevDay=S.day;
+  S.day+=total/DAY;S.loc=T.to;
+  if(S.visited.indexOf(T.to)<0)S.visited.push(T.to);
+  if(ship().special==='apollo'&&total>DAY){
+    const yrs=total/(DAY*365.25);
+    const interest=Math.round(S.cr*(Math.pow(1.06,yrs)-1));
+    if(interest>0){S.cr+=interest;
+      log('The Quixotic Eccentrics Endowment credits '+fmt(interest)+' cr — 6% per annum, faithfully compounded while you drifted.');}
+  }
+  /* relativity: cargo and crew aged by the SHIP clock, not the standard one —
+     shift perishable lot dates forward by the time-dilation deficit */
+  const defSec=(T.bankedDeficit||0)+planDeficitUpTo(T.plan,T.plan.total);
+  if(defSec>0.5){
+    for(const gid in S.lots)for(const L of S.lots[gid])L.d+=defSec/DAY;
+    S.tauDeficit=(S.tauDeficit||0)+defSec/DAY;
+    if(defSec>60)log('Relativity check: the ship clock ran '+fmtT(defSec)+' slow this leg — cargo aged that much less.');
+  }
+  decayCargo(prevDay);
+  const delicate=T.curA>=vOrb(T.to)/300;
+  let arrMsg;
+  if(delicate){arrMsg='Arrived at '+BODIES[T.to].n+' after '+fmtT(total)+' — tangent insertion at '+(vOrb(T.to)/1000).toFixed(2)+' km/s, clean as a kiss.';}
+  else{S.day+=900/DAY;const fee=Math.min(S.cr,100);S.cr-=fee;
+    arrMsg='Arrived at '+BODIES[T.to].n+' after '+fmtT(total)+' — too heavy for a tangent kiss; wallowed into orbit and paid a '+fee+' cr tug fee.';}
+  if(THREE_OK){shipMesh.visible=false;if(trajLine){scene.remove(trajLine);trajLine=null;}
+    CAMFOCUS=null;cam.dist=PREV_DIST;}
+  const contra=GOODS.findIndex(function(g){return g.contraband&&(S.cargo[g.id]||0)>0;});
+  T=null;
+  if(contra>=0&&Math.random()<0.35){
+    const g=GOODS[contra],q=S.cargo[g.id],fine=Math.min(S.cr,Math.round(q*g.base*0.4));
+    delete S.cargo[g.id];S.cr-=fine;
+    modal('CUSTOMS INSPECTION',
+      'The '+esc(BODIES[S.loc].n)+' customs cutter matches your insertion burn and boards you. They find the '+
+      esc(g.n).toLowerCase()+'. '+q+' '+g.u+(q>1?'s':'')+' confiscated and a fine of '+fmt(fine)+' cr assessed.',
+      [{t:'Pay up',f:function(){log(arrMsg+' Customs took the '+g.n.toLowerCase()+' and '+fmt(fine)+' cr.');showPort();}}]);
+    return;
+  }
+  log(arrMsg);
+  showPort();
+}
+/* ================= EVENTS ================= */
+function modal(title,body,choices){
+  $('modal-title').textContent=title;
+  $('modal-body').innerHTML=body;
+  $('modal-choices').innerHTML='';
+  for(const ch of choices){
+    const b=document.createElement('button');
+    if(ch.primary)b.className='primary';
+    b.textContent=ch.t;
+    b.onclick=function(){$('modal-back').classList.remove('active');ch.f();};
+    $('modal-choices').appendChild(b);
+  }
+  $('modal-back').classList.add('active');
+}
+function chordPerihelionAU(){
+  let mn=1e30;
+  for(let k=0;k<=32;k++){const f=k/32;
+    const p={x:T.P0.x+(T.P1.x-T.P0.x)*f,y:T.P0.y+(T.P1.y-T.P0.y)*f,z:T.P0.z+(T.P1.z-T.P0.z)*f};
+    mn=Math.min(mn,Math.hypot(p.x,p.y,p.z));}
+  return mn/AUm;
+}
+function pickEvent(){
+  const pw=0.30*(S.heat||1),tot=pw+0.70;
+  let r=Math.random()*tot;
+  if(r<pw)return 'pirates';r-=pw;
+  if(r<0.18)return 'malfunction';
+  if(r<0.31)return 'surge';
+  if(r<0.48)return 'derelict';
+  if(r<0.58)return 'storm';
+  return 'rumor';
+}
+function planEvents(days){
+  const ev=[];
+  if(Math.random()<Math.min(0.8,(days/2.5)*(1+((S.heat||1)-1)*0.3)))ev.push({at:0.15+Math.random()*0.55,kind:pickEvent()});
+  if(Math.random()<Math.min(0.35,days/8))ev.push({at:0.15+Math.random()*0.65,kind:pickEvent()});
+  if(ship().special==='fragile'&&Math.random()<Math.min(0.35,days/4))ev.push({at:0.15+Math.random()*0.65,kind:'malfunction'});
+  ev.sort(function(a2,b2){return a2.at-b2.at;});
+  return ev;
+}
+function cargoValueList(){
+  const out=[];for(let i=0;i<GOODS.length;i++){const q=S.cargo[GOODS[i].id]||0;if(q)out.push([i,q]);}return out;
+}
+function destroyShip(reasonHTML){
+  const oldName=ship().n;
+  if(THREE_OK&&shipMesh!==torchMesh){shipMesh.visible=false;shipMesh=torchMesh;shipMesh.visible=true;}
+  S.cargo={};S.lots={};S.ship='pod';S.qship=false;S.heat=1;
+  const aPod=aEff(10,5);
+  const over=retune(aPod/T.curA);T.m=10;
+  modal('SHIP DESTROYED',reasonHTML+'. The '+esc(oldName)+' comes apart around you; the pod kicks free carrying your velocity and nothing else. Its little candle-drive says it can still finish the trip'+(over?' — though with brakes this weak you will overshoot and double back':'')+'.',
+    [{t:'Drift on',f:function(){log('Ship destroyed — the '+oldName+' is gone. Escaped in the pod.');resumeTransit();}}]);
+}
+function fireEvent(kind){
+  if(kind==='pirates'){
+    if(S.qship&&Math.random()<0.67){
+      S.heat=Math.max(0.3,(S.heat||1)*0.6);
+      modal('PIRATES — SURPRISE',
+        'The corsair closes on what its scopes call a fat, underpowered belt trader. Blast shutters drop, the Q-ship package runs out its hidden batteries, and fires exactly once. The expanding cloud astern used to be a pirate. Word gets around.',
+        [{t:'Reload and carry on',f:function(){log('Pirate obliterated by the Q-ship batteries.');resumeTransit();}}]);
+      return;
+    }
+    if(ship().special==='galliot'&&Math.random()<0.9){
+      S.heat=Math.max(0.3,(S.heat||1)*0.6);
+      modal('PIRATES — BRIEFLY',
+        'A corsair begins its intercept; the Galliot’s point-defense grid paints it with a hundred firing solutions and one polite warning shot. The pirate reconsiders at speed. Word gets around.',
+        [{t:'Carry on',f:function(){log('Pirates repelled by the Galliot’s defenses.');resumeTransit();}}]);
+      return;
+    }
+    const ransom=Math.max(50,Math.round(S.cr*0.15));
+    function escOdds(a){return Math.max(0.05,Math.min(0.95,0.55*Math.pow(a/A0,0.75)));}
+    const pEsc=escOdds(T.curA);
+    const mNow=shipMass();
+    let dumpMass=0;for(const g of GOODS){const hv=S.cargo[g.id]||0;if(hv)dumpMass+=Math.ceil(hv/2)*g.wt;}
+    const pJet=dumpMass>0?escOdds(T.curA*mNow/(mNow-dumpMass)):pEsc;
+    function runOutcome(p){
+      if(Math.random()<p){
+        S.heat=Math.max(1,(S.heat||1)*0.6);
+        log('Outran the pirates. The corsair dwindles astern.');
+        modal('CLEAN GETAWAY','You redline the torch and the corsair falls away astern, cursing on an open channel.',[{t:'Onward',f:resumeTransit}]);
+      }else{
+        if(Math.random()<0.25){destroyShip('They catch you at the flip, and this crew does not rob — a torpedo blooms against the drive section');return;}
+        const cv=cargoValueList();let lost='nothing of value';
+        if(cv.length){const pick=cv[Math.floor(Math.random()*cv.length)];
+          const g=GOODS[pick[0]],q=Math.max(1,Math.round(pick[1]*0.6));
+          S.cargo[g.id]-=q;if(S.cargo[g.id]<=0)delete S.cargo[g.id];
+          consumeLots(g,q);
+          massChanged();
+          lost=q+' '+g.u+(q>1?'s':'')+' of '+g.n;}
+        else{const grab=Math.round(S.cr*0.25);S.cr-=grab;lost=fmt(grab)+' cr';}
+        log('Caught by pirates — lost '+lost+'.');
+        modal('BOARDED','They catch you at the midpoint flip, when you cannot dodge. They take '+lost+' and leave you your hull. Generous, by pirate standards.',[{t:'Limp onward',f:resumeTransit}]);
+      }
+    }
+    const choices=[
+      {t:'Pay the ransom ('+fmt(ransom)+' cr)',f:function(){
+        S.cr-=ransom;S.heat=Math.min(3,(S.heat||1)*1.35);
+        log('Paid pirates a ransom of '+fmt(ransom)+' cr. Word gets around about soft marks.');resumeTransit();}}
+    ];
+    if(dumpMass>0)choices.push({t:'Jettison half the cargo & run ('+Math.round(pJet*100)+'%)',f:function(){
+      const dumped=[];
+      for(const g of GOODS){const hv=S.cargo[g.id]||0;if(!hv)continue;
+        const dump=Math.ceil(hv/2);
+        S.cargo[g.id]=hv-dump;if(!S.cargo[g.id])delete S.cargo[g.id];
+        consumeLots(g,dump);dumped.push(dump+' '+g.u+(dump>1?'s':'')+' of '+g.n);}
+      massChanged();
+      log('Jettisoned half the cargo: '+dumped.join(', ')+'.');
+      runOutcome(escOdds(T.curA));
+    }});
+    choices.push({t:'Run for it ('+Math.round(pEsc*100)+'%)',primary:true,f:function(){runOutcome(pEsc);}});
+    modal('PIRATES OFF THE BOW',
+      'A blacked-out corsair matches your burn and paints your hull with targeting lasers. '+
+      'Their demand is simple: <span class="gold">'+fmt(ransom)+' cr</span>, wired now, or they hole your cargo bay.'+
+      '<br><span class="dim" style="font-size:.85em">The nav computer rates your escape odds at '+Math.round(pEsc*100)+'% on current thrust-to-mass'+(dumpMass>0?'; '+Math.round(pJet*100)+'% if you dump half the cargo first':'')+'.</span>',
+      choices);
+  }else if(kind==='malfunction'){
+    const pen=0.15+Math.random()*0.2;
+    const over=retune(1-pen);
+    modal('DRIVE FAULT',
+      'A torch-coil governor trips mid-burn. Thrust down <span class="red">'+Math.round(pen*100)+'%</span> while the autofactory prints a replacement.'+
+      (over?' You are decelerating on weakened engines: the nav plot says you will <span class="red">overshoot '+esc(BODIES[T.to].n)+'</span> and have to double back.':''),
+      [{t:'Nurse it along',f:function(){log('Drive fault — thrust down '+Math.round(pen*100)+'%'+(over?'; overshot and doubled back':'')+'.');resumeTransit();}}]);
+  }else if(kind==='surge'){
+    const gain=0.10+Math.random()*0.12;
+    retune(1+gain);
+    modal('CLEAN BURN',
+      'The reaction mass runs pure and the torch sings. Thrust up <span class="grn">'+Math.round(gain*100)+'%</span> for the rest of the run.',
+      [{t:'Ride it',f:function(){log('Clean burn — torch ran '+Math.round(gain*100)+'% hot.');resumeTransit();}}]);
+  }else if(kind==='storm'){
+    const inside=chordPerihelionAU()<1.6;
+    const bioList=cargoValueList().filter(function(cv){return GOODS[cv[0]].bio;});
+    if(!inside||!bioList.length){
+      modal('SOLAR WEATHER','A coronal mass ejection sweeps the inner system. Out here, with nothing living in the hold, it is just the finest aurora you have ever seen, wrapped around the whole sky.',
+        [{t:'Admire it',f:function(){log('Watched a CME light up the sky, safely.');resumeTransit();}}]);
+      return;
+    }
+    const isArgo=ship().special==='icarus',lossFrac=isArgo?0.2:0.4;
+    modal('CORONAL MASS EJECTION',
+      'The Sun clears its throat. A proton storm is sweeping across your track, and the hold is full of living cargo.'+
+      (isArgo?' <span class="cyan">The '+esc(ship().n)+'’s solar-rated shielding will halve the losses.</span>':''),
+      [{t:'Press on through it',f:function(){
+          const hurt=[];
+          for(const cv of bioList){const g=GOODS[cv[0]],lose=Math.max(1,Math.round(cv[1]*lossFrac));
+            S.cargo[g.id]-=lose;if(S.cargo[g.id]<=0)delete S.cargo[g.id];consumeLots(g,lose);
+            hurt.push(lose+' '+g.u+(lose>1?'s':'')+' of '+g.n);}
+          massChanged();
+          log('Rode out a CME — lost '+hurt.join(', ')+' to radiation.');resumeTransit();}},
+       {t:'Turtle in the drive shadow',primary:true,f:function(){
+          const over=retune(0.82);
+          log('Sheltered behind the drive through a CME — thrust down 18% for the rest of the run'+(over?'; overshot and doubled back':'')+'.');resumeTransit();}}]);
+  }else if(kind==='derelict'){
+    if(Math.random()<0.2){
+      const cr=200+Math.floor(Math.random()*1000);
+      modal('DERELICT HULK',
+        'A dead freighter tumbles across your course, decades cold. The safe cracks easily: <span class="gold">'+fmt(cr)+' cr</span> in hard scrip.',
+        [{t:'Salvage and go',f:function(){S.cr+=cr;log('Salvaged '+fmt(cr)+' cr from a derelict.');resumeTransit();}},
+         {t:'Leave the dead alone',f:function(){log('Passed a derelict by.');resumeTransit();}}]);
+    }else{
+      const gi=Math.floor(Math.random()*GOODS.length),g=GOODS[gi];
+      const q=1+Math.floor(Math.random()*6);
+      const total0=totalTrip(),tnow=T.prog*total0,tc=Math.max(0,Math.min(tnow-T.climb,T.plan.total));
+      const stNow=planState(T.plan,tc),phNow=planPhase(T.plan,tc);
+      const risky=stNow.v>1e-9&&phNow.acc<0;
+      modal('DERELICT HULK',
+        'A dead freighter tumbles across your course. Its hold still carries <span class="gold">'+q+' '+g.u+(q>1?'s':'')+' of '+esc(g.n)+'</span>. Taking it aboard adds '+q*g.wt+' mass.'+
+        (risky?' <span class="red">You are mid-deceleration: extra mass now means weaker braking, and the nav computer predicts an overshoot.</span>':''),
+        [{t:'Take the cargo',f:function(){S.cargo[g.id]=(S.cargo[g.id]||0)+q;
+            const pd=S.paid[g.id]||(S.paid[g.id]={q:0,c:0});pd.q+=q;
+            if(g.perish||g.halflife)(S.lots[g.id]=S.lots[g.id]||[]).push({q:q,d:S.day+T.prog*totalTrip()/DAY});
+            const over=massChanged();
+            log('Salvaged '+q+' '+g.u+(q>1?'s':'')+' of '+g.n+' from a derelict'+(over?' — the extra mass forced an overshoot':'')+'.');resumeTransit();}},
+         {t:'Leave it',f:function(){log('Passed a derelict by.');resumeTransit();}}]);
+    }
+  }else{ /* rumor */
+    const gi=Math.floor(Math.random()*GOODS.length);
+    const cands=PORTS.filter(function(j){return j!==T.to&&j!==T.from&&portBuys(j,gi);});
+    const sys=cands[Math.floor(Math.random()*cands.length)];
+    const mult=1.6+Math.random()*0.8;
+    const dS=Math.min.apply(null,GOODS[gi].src.map(function(s2){return distM(sys,s2,S.day);}));
+    const fetch=chordTime(dS,300,100)/DAY;
+    const until=S.day+totalTrip()/DAY+2*fetch+3;
+    /* rumors STACK now — prune expired and same-slot duplicates, keep the rest */
+    S.rumors=(S.rumors||[]).filter(function(r){return S.day<=r.expires&&!(r.sys===sys&&r.good===gi);});
+    S.rumors.push({sys:sys,good:gi,mult:mult,expires:until});
+    /* mid-flight reroute options: (A) the rumor port, (B) best price for the good,
+       (C) nearest port with it in stock — each solved with full inertia compensation */
+    const SSnow=shipStateNow();
+    const targets=[];
+    const canReroute=ship().special!=='apollo'; /* the CSM has no delta-v for adventures */
+    function addTarget(dst,tag){
+      if(dst==null||dst===T.to)return;
+      if(targets.some(function(x){return x.dst===dst;}))return;
+      targets.push({dst:dst,tag:tag});
+    }
+    if(canReroute)addTarget(sys,'the rumor');
+    let best=null;
+    for(const p2 of PORTS)if(p2!==T.to&&portBuys(p2,gi)&&(!best||price(p2,gi)>price(best,gi)))best=p2;
+    if(canReroute)addTarget(best,'best price '+fmt(price(best,gi))+' cr');
+    let near=null,nd=1e30;
+    for(const p2 of PORTS){
+      if(p2===T.to||stock(p2,gi)<1)continue;
+      const Pp=posOf(p2,SSnow.dayNow);
+      const dd=Math.hypot(Pp.x-SSnow.pos.x,Pp.y-SSnow.pos.y,Pp.z-SSnow.pos.z);
+      if(dd<nd){nd=dd;near=p2;}
+    }
+    if(canReroute)addTarget(near,'nearest stocked source');
+    const choices=[{t:'Noted — hold course',primary:true,f:function(){log('Rumor: '+BODIES[sys].n+' paying high for '+GOODS[gi].n+' until '+dateStr(until)+'.','rumor');resumeTransit();}}];
+    for(const tg of targets){
+      (function(tg2){
+        const sol=rerouteSolve(tg2.dst);
+        choices.push({t:'Reroute: '+BODIES[tg2.dst].n+' ('+tg2.tag+', ~'+fmtT(sol.t)+')',f:function(){
+          log('Rumor: '+BODIES[sys].n+' paying high for '+GOODS[gi].n+' until '+dateStr(until)+'.','rumor');
+          applyReroute(tg2.dst,rerouteSolve(tg2.dst));
+          resumeTransit();
+        }});
+      })(tg);
+    }
+    modal('TIGHTBEAM GOSSIP',
+      'You pass a mail packet in the dark and trade manifests by tightbeam. Word is <span class="gold">'+esc(BODIES[sys].n)+
+      '</span> is paying wildly over the odds for <span class="gold">'+esc(GOODS[gi].n).toLowerCase()+'</span> — the word is good until about <span class="gold">'+dateStr(until)+'</span>.'+
+      '<br><span class="dim" style="font-size:.85em">The nav computer offers mid-burn reroutes, inertia and all: your current velocity is decomposed onto the new chord — the useful part is kept, the sideways part burned off, the contrary part braked (and if it cannot brake in time, you will overshoot and double back, as physics demands).</span>',
+      choices);
+  }
+}
+/* ================= FRAME LOOP & INPUT ================= */
+function frame(){
+  if(THREE_OK){
+    if(T){transitTick();if(T)drawTransit();}
+    else if(S)updateScene(S.day);
+    else updateScene(0);
+    if(curCanvasBox)renderer.render(scene,camera);
+    if(selRing&&selRing.visible&&SEL!=null&&S){
+      const p=dispPos(SEL,S.day);
+      selRing.position.copy(p);selRing.lookAt(camera.position);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+function initInput(){
+  document.addEventListener('pointerdown',function(e){
+    if(!curCanvasBox||!curCanvasBox.contains(e.target))return;
+    dragM={x:e.clientX,y:e.clientY,moved:false};
+    curCanvasBox.classList.add('dragging');
+  });
+  document.addEventListener('pointermove',function(e){
+    if(!dragM)return;
+    const dx=e.clientX-dragM.x,dy=e.clientY-dragM.y;
+    if(Math.abs(dx)+Math.abs(dy)>3)dragM.moved=true;
+    cam.yaw+=dx*0.006;cam.pitch=Math.max(-1.45,Math.min(1.45,cam.pitch+dy*0.006));
+    dragM.x=e.clientX;dragM.y=e.clientY;
+  });
+  document.addEventListener('pointerup',function(e){
+    if(curCanvasBox)curCanvasBox.classList.remove('dragging');
+    if(dragM&&!dragM.moved&&THREE_OK&&curCanvasBox&&curCanvasBox.id==='mapbox'&&document.getElementById('scr-setout').classList.contains('active')){
+      const r=renderer.domElement.getBoundingClientRect();
+      const mouse=new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+      const ray=new THREE.Raycaster();
+      ray.setFromCamera(mouse,camera);
+      const hits=ray.intersectObjects(bodyMesh.filter(function(m2){return m2;}),true);
+      for(const h of hits){
+        let o=h.object,bi=null;
+        while(o){if(o.userData&&o.userData.bi!=null){bi=o.userData.bi;break;}o=o.parent;}
+        if(bi!=null&&BODIES[bi].port&&bi!==S.loc){selectDest(bi);break;}
+      }
+    }
+    dragM=null;
+  });
+  document.addEventListener('wheel',function(e){
+    if(!curCanvasBox||!curCanvasBox.contains(e.target))return;
+    e.preventDefault();
+    cam.dist=Math.max(0.15,Math.min(160,cam.dist*(e.deltaY<0?0.9:1.1))); /* zoom right down to the hull */
+  },{passive:false});
+  window.addEventListener('resize',function(){if(curCanvasBox)attachCanvas(curCanvasBox.id);});
+}
+window.addEventListener('load',function(){
+  $('verbadge').textContent='v'+VERSION;
+  $('titlescores').innerHTML=loadScores().length?'<h3>HALL OF THE GRAND TOUR OF SOL</h3>'+scoresTable(5):'';
+  initThree();
+  initInput();
+  try{if(localStorage.getItem('solarrun_save'))$('btn-continue').style.display='';}catch(e){}
+});
+</script>
+</body>
+</html>
